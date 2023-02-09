@@ -149,11 +149,20 @@ class cluster(object):
         for ii in range(len(ps)):
             self.systems.append(system(ps[ii], vs[ii], ms[ii], ids[ii]))
         self.systems = np.array(self.systems)
-        for ii in range(3):
+        self.orb_data = np.zeros((0, 14))
+        self.regions = select_in_subregion(self.get_system_position, max_dist = self.max_dist)
+        conv = False
+        while not conv:
+            systems_start = [ss.multiplicity for ss in self.systems]
             self.orb_data = np.zeros((0, 14))
-            self.regions = select_in_subregion(self.get_system_position, max_dist = self.max_dist)
             self._find_binaries_all()
-            self._combine_binaries()
+            systems_end = [ss.multiplicity for ss in self.systems]
+            conv = (systems_start == systems_end)
+        # for ii in range(3):
+        #     self.orb_data = np.zeros((0, 14))
+        #     self.regions = select_in_subregion(self.get_system_position, max_dist = self.max_dist)
+        #     self._find_binaries_all()
+        #     self._combine_binaries()
 
     @property
     def get_system_position(self):
@@ -173,19 +182,18 @@ class cluster(object):
 
     def _find_binaries_all(self):
         for ii in range(len(self.regions)):
+            self.regions = select_in_subregion(self.get_system_position, max_dist=self.max_dist)
             self._find_bin_region(ii)
 
     def _find_bin_region(self, ii):
         region = self.regions[ii]
         pos = self.get_system_position[region]
-
         vel = self.get_system_vel[region]
         mass = self.get_system_mass[region]
         idx = np.array(range(len(self.systems)))[region]
-
-        combos_all = np.array(list(combinations(list(range(len(pos))), 2)))
         orb_all = []
-        for ii, combo in enumerate(combos_all):
+        combos_all = np.array(list(combinations(list(range(len(pos))), 2)))
+        for jj, combo in enumerate(combos_all):
             i = combo[0]
             j = combo[1]
             orb_all.append(np.concatenate((get_orbit(pos[i], pos[j], vel[i], vel[j], mass[i], mass[j], G=self.G), [idx[i], idx[j]])))
@@ -200,25 +208,34 @@ class cluster(object):
         combos_all = combos_all[en_order]
 
         bin_index = []
-        for ii, combo in enumerate(combos_all):
-            row = orb_all[ii]
+        for jj, combo in enumerate(combos_all):
+            row = orb_all[jj]
             ##Need to the multiplicity check here?!
-            # idx1 = int(row[-2])
-            # idx2 = int(row[-1])
-            idx1 = combo[0]
-            idx2 = combo[1]
+            # idx1 = combo[0]
+            # idx2 = combo[1]
+            idx1 = int(row[-2])
+            idx2 = int(row[-1])
             mult_total = self.systems[idx1].multiplicity + self.systems[idx2].multiplicity
             if row[0] > 0 and ~np.isin(idx1, bin_index) and ~np.isin(idx2, bin_index) and (mult_total <= 4):
+                print("adding {0}".format(mult_total))
                 # self.orb_data.append(row)
                 self.orb_data = np.vstack((self.orb_data, row))
                 bin_index.append(idx1)
                 bin_index.append(idx2)
+                self._combine_binaries()
+                return
+                # self.orb_data = np.zeros((0, 14))
+                # self.regions = select_in_subregion(self.get_system_position, max_dist=self.max_dist)
+                # self._find_bin_region(ii)
         # self.orb_data = np.array(self.orb_data)
+
 
     def _combine_binaries(self):
         idx = np.array(range(len(self.systems)))
         filt = ~np.isin(idx, self.orb_data[:, -2:].astype(int).ravel())
+        # print(len(self.systems[filt]))
         systems_new = self.systems[filt]
+        # print(len(self.systems[filt]))
 
         masses = self.get_system_mass
         ids = self.get_system_ids
@@ -226,15 +243,17 @@ class cluster(object):
             idx1 = int(row[-2])
             idx2 = int(row[-1])
             if self.systems[idx1].multiplicity + self.systems[idx2].multiplicity > 4:
+                # print("test1")
                 systems_new = np.concatenate((systems_new, [self.systems[idx1], self.systems[idx2]]))
             else:
+                # print("test2")
                 ss_new = system(row[4:7], row[7:10], row[10]+row[11],  np.concatenate((ids[idx1], ids[idx2])))
                 ss_new.add_orbit(self.systems[idx1].orbits)
                 ss_new.add_orbit(self.systems[idx2].orbits)
                 ss_new.add_orbit([row])
                 systems_new = np.concatenate((systems_new, [ss_new]))
-
         self.systems = systems_new
+        print(len(self.systems))
 
 
 def main():
