@@ -200,18 +200,34 @@ class cluster(object):
         idx = np.array(range(len(self.systems)))[region]
 
         combos_all = np.array(list(combinations(list(range(len(pos))), 2)))
+        orb_all = []
 
         for jj, combo in enumerate(combos_all):
             i = combo[0]
             j = combo[1]
-            orb = np.concatenate((get_orbit(pos[i], pos[j], vel[i], vel[j], mass[i], mass[j], G=self.G), [idx[i], idx[j]]))
-            ##TO BE REFACTORED -- Do we need add binary data hierarchically? Cannot hurt?
-            f2body_i = mass[i] * pytreegrav.AccelTarget(np.atleast_2d(pos[i]), np.atleast_2d(pos[j]), np.atleast_1d(mass[j]),\
+            orb_all.append(np.concatenate((get_orbit(pos[i], pos[j], vel[i], vel[j], mass[i], mass[j], G=self.G), [idx[i], idx[j]])))
+
+        orb_all = np.array(orb_all)
+        smas = orb_all[:, 0]
+        order = np.argsort(smas)
+        combos_all = combos_all[order]
+        smas = smas[order]
+        orb_all = orb_all[order]
+
+        bin_index = []
+        for jj, combo in enumerate(combos_all):
+            i = combo[0]
+            j = combo[1]
+            if smas[jj] > 0 and ~np.isin(i, bin_index) and ~np.isin(j, bin_index):
+                ##TO BE REFACTORED -- Do we need add binary data hierarchically?
+                f2body_i = mass[i] * pytreegrav.AccelTarget(np.atleast_2d(pos[i]), np.atleast_2d(pos[j]), np.atleast_1d(mass[j]),\
                                 h_target=np.atleast_1d(soft[i]), h_source=np.atleast_1d(soft[j]), G=self.G)
-            com_accel = (mass[i] * accel[i] + mass[j] * accel[j])/(mass[i] + mass[j])
-            f_tides = mass[i] * (accel[i] - com_accel) - f2body_i
-            if (orb[0] > 0) and (np.linalg.norm(f_tides) < np.linalg.norm(f2body_i)):
-                self.orb_data = np.vstack((self.orb_data, orb))
+                com_accel = (mass[i] * accel[i] + mass[j] * accel[j])/(mass[i] + mass[j])
+                f_tides = mass[i] * (accel[i] - com_accel) - f2body_i
+                if np.linalg.norm(f_tides) < np.linalg.norm(f2body_i):
+                    self.orb_data = np.vstack((self.orb_data, orb_all[jj]))
+                    bin_index.append(i)
+                    bin_index.append(j)
 
     def _combine_binaries(self):
         idx = np.array(range(len(self.systems)))
