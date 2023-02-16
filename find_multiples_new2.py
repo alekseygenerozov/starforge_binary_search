@@ -104,7 +104,7 @@ def get_orbit(p1, p2, v1, v2, m1, m2, G=4.301e3):
 
 def select_in_subregion(x, max_dist=0.1):
     dx=np.max(x[:,0])-np.min(x[:,0]);dy=np.max(x[:,1])-np.min(x[:,1]);dz=np.max(x[:,2])-np.min(x[:,2]);
-    # Ngrid1D = int(np.clip(np.min([dx, dy, dz]) / max_dist, 1, np.max([5, len(x) ** 0.33])));
+    #Ngrid1D = int(np.clip(np.min([dx, dy, dz]) / max_dist, 1, np.max([5, len(x) ** 0.33])));
     Ngrid1D = 1
 
     xmin=np.min(x[:,0]);xmax=np.max(x[:,0]); dx=(xmax-xmin)/(Ngrid1D)
@@ -123,13 +123,14 @@ def select_in_subregion(x, max_dist=0.1):
 
 
 class system(object):
-    def __init__(self, p1, v1, m1, id1):
+    def __init__(self, p1, v1, m1, id1, sysID):
         self.pos = np.copy(p1)
         self.vel = np.copy(v1)
         self.mass = m1
 
         self.orbits = np.zeros((0, 14))
         self.ids = np.atleast_1d(id1)
+        self.sysID = sysID
         # self.child_pos
         # self.child_vel
 
@@ -147,22 +148,18 @@ class cluster(object):
         self.max_dist = 0.1
         self.systems = []
         for ii in range(len(ps)):
-            self.systems.append(system(ps[ii], vs[ii], ms[ii], ids[ii]))
+            self.systems.append(system(ps[ii], vs[ii], ms[ii], ids[ii], ii))
         self.systems = np.array(self.systems)
-        self.orb_data = np.zeros((0, 14))
         self.regions = select_in_subregion(self.get_system_position, max_dist = self.max_dist)
+        self.orb_all = []
+        self._calculate_orbits()
         conv = False
         while not conv:
             systems_start = [ss.multiplicity for ss in self.systems]
-            self.orb_data = np.zeros((0, 14))
             self._find_binaries_all()
             systems_end = [ss.multiplicity for ss in self.systems]
             conv = (systems_start == systems_end)
-        # for ii in range(3):
-        #     self.orb_data = np.zeros((0, 14))
-        #     self.regions = select_in_subregion(self.get_system_position, max_dist = self.max_dist)
-        #     self._find_binaries_all()
-        #     self._combine_binaries()
+        # print("test")
 
     @property
     def get_system_position(self):
@@ -180,87 +177,115 @@ class cluster(object):
     def get_system_ids(self):
         return [ss.ids for ss in self.systems]
 
+    @property
+    def get_system_ids_b(self):
+        return np.array([ss.sysID for ss in self.systems])
+
     def _find_binaries_all(self):
         for ii in range(len(self.regions)):
-            self.regions = select_in_subregion(self.get_system_position, max_dist=self.max_dist)
             self._find_bin_region(ii)
 
+    def _calculate_orbits(self):
+        for region in self.regions:
+            pos = self.get_system_position[region]
+            vel = self.get_system_vel[region]
+            mass = self.get_system_mass[region]
+            idx = np.array(range(len(self.systems)))[region]
+            orb_region = []
+            combos_all = np.array(list(combinations(list(range(len(pos))), 2)))
+            for jj, combo in enumerate(combos_all):
+                i = combo[0]
+                j = combo[1]
+                orb_region.append(np.concatenate((get_orbit(pos[i], pos[j], vel[i], vel[j], mass[i], mass[j], G=self.G),
+                                                  [self.systems[idx[i]].sysID, self.systems[idx[j]].sysID])))
+            self.orb_all.append(np.array(orb_region))
+        self.orb_all = self.orb_all
+
+
+    def _orbit_adjust_delete(self, ii, ID1, ID2):
+        ##Have to account for the fact that binary deletion just took place in the indexing -- Otherwise things will go wrong!
+        combos_all = self.orb_all[ii][:, -2:].astype(int)
+        test1 = np.where(np.any(ID1 == combos_all, axis=1))[0]
+        test2 = np.where(np.any(ID2 == combos_all, axis=1))[0]
+
+        to_delete = np.concatenate((test1, test2))
+        self.orb_all[ii] = np.delete(self.orb_all[ii], to_delete, axis=0)
+
+    def _orbit_adjust_add(self, ii, ID_NEW):
+        regionIDs = np.unique(self.orb_all[ii][:, -2].astype(int).ravel())
+        sysIDs = self.get_system_ids_b
+        pos = self.get_system_position
+        vel = self.get_system_vel
+        mass = self.get_system_mass
+
+        idx1 = np.where(sysIDs == ID_NEW)[0][0]
+        for id_it in regionIDs:
+            j = np.where(id_it == sysIDs)[0][0]
+            tmp = get_orbit(pos[idx1], pos[j], vel[idx1], vel[j], mass[idx1], mass[j], G=self.G)
+            tmp = np.concatenate((tmp, [ID_NEW, id_it]))
+            self.orb_all[ii] = np.append(self.orb_all[ii], tmp)
+            self.orb_all[ii].shape = (-1, 14)
+
     def _find_bin_region(self, ii):
-        region = self.regions[ii]
-        pos = self.get_system_position[region]
-        vel = self.get_system_vel[region]
-        mass = self.get_system_mass[region]
-        idx = np.array(range(len(self.systems)))[region]
-        orb_all = []
-        combos_all = np.array(list(combinations(list(range(len(pos))), 2)))
-        for jj, combo in enumerate(combos_all):
-            i = combo[0]
-            j = combo[1]
-            orb_all.append(np.concatenate((get_orbit(pos[i], pos[j], vel[i], vel[j], mass[i], mass[j], G=self.G), [idx[i], idx[j]])))
+        orb_all = self.orb_all[ii]
         if len(orb_all) < 1:
             return
-
-        orb_all = np.array(orb_all)
+        sysIDs = self.get_system_ids_b
         ens = -self.G*orb_all[:, 10]*orb_all[:, 11]/(2.*orb_all[:, 0])
         en_order = np.argsort(ens)
-        # sma_order = np.argsort(orb_all[:, 0])
         orb_all = orb_all[en_order]
-        combos_all = combos_all[en_order]
 
-        bin_index = []
-        for jj, combo in enumerate(combos_all):
-            row = orb_all[jj]
-            ##Need to the multiplicity check here?!
-            # idx1 = combo[0]
-            # idx2 = combo[1]
-            idx1 = int(row[-2])
-            idx2 = int(row[-1])
+        # bin_index = []
+        for row in orb_all:
+            ID1 = int(row[-2])
+            ID2 = int(row[-1])
+            idx1 = np.where(sysIDs == ID1)[0][0]
+            idx2 = np.where(sysIDs == ID2)[0][0]
+
             mult_total = self.systems[idx1].multiplicity + self.systems[idx2].multiplicity
-            if row[0] > 0 and ~np.isin(idx1, bin_index) and ~np.isin(idx2, bin_index) and (mult_total <= 4):
+            if row[0] > 0 and (mult_total <= 4):
                 print("adding {0}".format(mult_total))
-                # self.orb_data.append(row)
-                self.orb_data = np.vstack((self.orb_data, row))
-                bin_index.append(idx1)
-                bin_index.append(idx2)
-                self._combine_binaries()
+                flag, ID_NEW = self._combine_binaries(row)
+                if flag:
+                    self._orbit_adjust_delete(ii, ID1, ID2)
+                    self._orbit_adjust_add(ii, ID_NEW)
                 return
-                # self.orb_data = np.zeros((0, 14))
-                # self.regions = select_in_subregion(self.get_system_position, max_dist=self.max_dist)
-                # self._find_bin_region(ii)
-        # self.orb_data = np.array(self.orb_data)
 
+    def _combine_binaries(self, row):
+        sysIDs = self.get_system_ids_b
+        sysID_max = np.max(sysIDs)
 
-    def _combine_binaries(self):
-        idx = np.array(range(len(self.systems)))
-        filt = ~np.isin(idx, self.orb_data[:, -2:].astype(int).ravel())
-        # print(len(self.systems[filt]))
+        filt = ~np.isin(sysIDs, row[-2:].astype(int).ravel())
         systems_new = self.systems[filt]
-        # print(len(self.systems[filt]))
-
-        masses = self.get_system_mass
         ids = self.get_system_ids
-        for row in self.orb_data:
-            idx1 = int(row[-2])
-            idx2 = int(row[-1])
-            if self.systems[idx1].multiplicity + self.systems[idx2].multiplicity > 4:
-                # print("test1")
-                systems_new = np.concatenate((systems_new, [self.systems[idx1], self.systems[idx2]]))
-            else:
-                # print("test2")
-                ss_new = system(row[4:7], row[7:10], row[10]+row[11],  np.concatenate((ids[idx1], ids[idx2])))
-                ss_new.add_orbit(self.systems[idx1].orbits)
-                ss_new.add_orbit(self.systems[idx2].orbits)
-                ss_new.add_orbit([row])
-                systems_new = np.concatenate((systems_new, [ss_new]))
+
+        idx1 = np.where(sysIDs == row[-2])[0][0]
+        idx2 = np.where(sysIDs == row[-1])[0][0]
+
+        ##Can refactor: Conditional is not really necessary
+        flag = 0
+        if self.systems[idx1].multiplicity + self.systems[idx2].multiplicity > 4:
+            # print("test1")
+            systems_new = np.concatenate((systems_new, [self.systems[idx1], self.systems[idx2]]))
+            flag = 0
+        else:
+            # print("test2")
+            ss_new = system(row[4:7], row[7:10], row[10]+row[11],  np.concatenate((ids[idx1], ids[idx2])), sysID_max+1)
+            ss_new.add_orbit(self.systems[idx1].orbits)
+            ss_new.add_orbit(self.systems[idx2].orbits)
+            ss_new.add_orbit([row])
+            systems_new = np.concatenate((systems_new, [ss_new]))
+            flag = 1
         self.systems = systems_new
-        print(len(self.systems))
+        return flag, sysID_max + 1
+        # print(len(self.systems))
 
 
 def main():
-    snapshot_file = "snapshot_250.hdf5"
+    snapshot_file = "snapshot_245.hdf5"
     den, x, m, h, u, b, v, t, fmol, fneu, partpos, partmasses, partvels, partids, tcgs, unit_base = load_data(snapshot_file, res_limit=1e-3)
     cl = cluster(partpos, partvels, partmasses, partids)
-    with open("multiples.p", "wb") as ff:
+    with open("tmp_245.p", "wb") as ff:
         pickle.dump(cl, ff)
 
 

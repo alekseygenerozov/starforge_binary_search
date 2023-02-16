@@ -148,14 +148,15 @@ class system(object):
 
 
 class cluster(object):
-    def __init__(self, ps, vs, ms, hs,  ids, accels):
+    def __init__(self, ps, vs, ms, hs,  ids, accels, tides=True):
         self.G = 4.301e3
         self.max_dist = 0.1
         self.systems = []
+        self.tides = tides
         for ii in range(len(ps)):
             self.systems.append(system(ps[ii], vs[ii], ms[ii], hs[ii], ids[ii], accels[ii]))
         self.systems = np.array(self.systems)
-        for ii in range(2):
+        for ii in range(3):
             self.orb_data = np.zeros((0, 14))
             self.regions = select_in_subregion(self.get_system_position, max_dist = self.max_dist)
             self._find_binaries_all()
@@ -214,6 +215,7 @@ class cluster(object):
         smas = smas[order]
         orb_all = orb_all[order]
 
+
         bin_index = []
         for jj, combo in enumerate(combos_all):
             i = combo[0]
@@ -224,7 +226,7 @@ class cluster(object):
                                 h_target=np.atleast_1d(soft[i]), h_source=np.atleast_1d(soft[j]), G=self.G)
                 com_accel = (mass[i] * accel[i] + mass[j] * accel[j])/(mass[i] + mass[j])
                 f_tides = mass[i] * (accel[i] - com_accel) - f2body_i
-                if np.linalg.norm(f_tides) < np.linalg.norm(f2body_i):
+                if (np.linalg.norm(f_tides) < np.linalg.norm(f2body_i)) or (not self.tides):
                     self.orb_data = np.vstack((self.orb_data, orb_all[jj]))
                     bin_index.append(i)
                     bin_index.append(j)
@@ -260,6 +262,7 @@ class cluster(object):
 
 
 def main():
+
     snapshot_file = "snapshot_250.hdf5"
     den, x, m, h, u, b, v, t, fmol, fneu, partpos, partmasses, partvels, partids, partsink, tcgs, unit_base = load_data(snapshot_file, res_limit=1e-3)
     xuniq, indx = np.unique(x, return_index=True, axis=0)
@@ -271,12 +274,16 @@ def main():
     partpos = partpos.astype(np.float64)
     partmasses = partmasses.astype(np.float64)
     partsink = partsink.astype(np.float64)
-    partsink = np.zeros(len(partsink))
+    # partsink = np.zeros(len(partsink))
 
     accel_gas = pytreegrav.AccelTarget(partpos, xuniq, muniq, h_target=partsink, h_source=h[indx], G=4.301e3)
     accel_stars = pytreegrav.Accel(partpos, partmasses, partsink, method='bruteforce', G=4.301e3)
-    cl = cluster(partpos, partvels, partmasses, partsink, partids, accel_stars)
-    with open("multiples_tides_troubleshoot.p", "wb") as ff:
+    cl = cluster(partpos, partvels, partmasses, partsink, partids, accel_stars + accel_gas)
+    with open("multiples_tidesT.p", "wb") as ff:
+        pickle.dump(cl, ff)
+
+    cl = cluster(partpos, partvels, partmasses, partsink, partids, accel_stars + accel_gas, tides=False)
+    with open("multiples_tidesF.p", "wb") as ff:
         pickle.dump(cl, ff)
 
 
