@@ -2,6 +2,7 @@ import numpy as np
 import h5py
 from itertools import combinations
 import pickle
+import pytreegrav
 
 
 def load_data(file, res_limit=0.0):
@@ -40,11 +41,13 @@ def load_data(file, res_limit=0.0):
         partmasses = f['PartType5']['Masses'][:]
         partvels = f['PartType5']['Velocities'][:]
         partids = f['PartType5']['ParticleIDs'][:]
+        partsink = (f['PartType5']['SinkRadius'][:])
     else:
         partpos = []
         partmasses = [0]
         partids = []
         partvels = [0, 0, 0]
+        partsink = []
 
     time = f['Header'].attrs['Time']
     unitlen = f['Header'].attrs['UnitLength_In_CGS']
@@ -61,7 +64,7 @@ def load_data(file, res_limit=0.0):
     print("Snapshot time in %f Myr" % (tcgs))
 
     del f
-    return den, x, m, h, u, b, v, t, fmol, fneu, partpos, partmasses, partvels, partids, tcgs, unit_base
+    return den, x, m, h, u, b, v, t, fmol, fneu, partpos, partmasses, partvels, partids, partsink, tcgs, unit_base
 
 
 def get_orbit(p1, p2, v1, v2, m1, m2, G=4.301e3):
@@ -123,10 +126,12 @@ def select_in_subregion(x, max_dist=0.1):
 
 
 class system(object):
-    def __init__(self, p1, v1, m1, id1, sysID):
+    def __init__(self, p1, v1, m1, h1, id1, accel, sysID):
         self.pos = np.copy(p1)
         self.vel = np.copy(v1)
         self.mass = m1
+        self.soft = h1
+        self.accel = accel
 
         self.orbits = np.zeros((0, 14))
         self.ids = np.atleast_1d(id1)
@@ -143,13 +148,16 @@ class system(object):
 
 
 class cluster(object):
-    def __init__(self, ps, vs, ms, ids):
+    def __init__(self, ps, vs, ms, partsink, ids, accels, tides=True):
         self.G = 4.301e3
         self.max_dist = 0.1
         self.systems = []
+        ##Adding each star as a system
         for ii in range(len(ps)):
-            self.systems.append(system(ps[ii], vs[ii], ms[ii], ids[ii], ii))
+            self.systems.append(system(ps[ii], vs[ii], ms[ii], partsink[ii], ids[ii], accels[ii], ii))
         self.systems = np.array(self.systems)
+        self.tides = tides
+        ##Compute orbits of stars in different subregions -- select in subregion copied from previous code.
         self.regions = select_in_subregion(self.get_system_position, max_dist = self.max_dist)
         self.orb_all = []
         self._calculate_orbits()
@@ -180,6 +188,14 @@ class cluster(object):
     @property
     def get_system_ids_b(self):
         return np.array([ss.sysID for ss in self.systems])
+
+    @property
+    def get_system_soft(self):
+        return np.array([ss.soft for ss in self.systems])
+
+    @property
+    def get_system_accel(self):
+        return np.array([ss.accel for ss in self.systems])
 
     def _find_binaries_all(self):
         for ii in range(len(self.regions)):
@@ -231,11 +247,15 @@ class cluster(object):
         if len(orb_all) < 1:
             return
         sysIDs = self.get_system_ids_b
+        pos = self.get_system_position
+        mass = self.get_system_mass
+        soft = self.get_system_soft
+        accel = self.get_system_accel
+
         ens = -self.G*orb_all[:, 10]*orb_all[:, 11]/(2.*orb_all[:, 0])
         en_order = np.argsort(ens)
         orb_all = orb_all[en_order]
 
-        # bin_index = []
         for row in orb_all:
             ID1 = int(row[-2])
             ID2 = int(row[-1])
@@ -243,7 +263,15 @@ class cluster(object):
             idx2 = np.where(sysIDs == ID2)[0][0]
 
             mult_total = self.systems[idx1].multiplicity + self.systems[idx2].multiplicity
-            if row[0] > 0 and (mult_total <= 4):
+            ###Tidal criterion: try to refactor since this is the heart of what I am adding to the method...
+            f2body_i = mass[idx1] * pytreegrav.AccelTarget(np.atleast_2d(pos[idx1]), np.atleast_2d(pos[idx2]),
+                                                        np.atleast_1d(mass[idx2]), h_target=np.atleast_1d(soft[idx1]),
+                                                        h_source=np.atleast_1d(soft[idx2]), G=self.G)
+            com_accel = (mass[idx1] * accel[idx1] + mass[idx2] * accel[idx2]) / (mass[idx1] + mass[idx2])
+            f_tides = mass[idx1] * (accel[idx1] - com_accel) - f2body_i
+
+            tidal_crit = (np.linalg.norm(f_tides) < np.linalg.norm(f2body_i)) or (not self.tides)
+            if row[0] > 0 and (mult_total <= 4) and tidal_crit:
                 print("adding {0}".format(mult_total))
                 flag, ID_NEW = self._combine_binaries(row)
                 if flag:
@@ -262,15 +290,19 @@ class cluster(object):
         idx1 = np.where(sysIDs == row[-2])[0][0]
         idx2 = np.where(sysIDs == row[-1])[0][0]
 
-        ##Can refactor: Conditional is not really necessary
+        ##Can refactor: First conditional is not necessary, just don't filter out binaries in this case
         flag = 0
         if self.systems[idx1].multiplicity + self.systems[idx2].multiplicity > 4:
-            # print("test1")
             systems_new = np.concatenate((systems_new, [self.systems[idx1], self.systems[idx2]]))
             flag = 0
         else:
-            # print("test2")
-            ss_new = system(row[4:7], row[7:10], row[10]+row[11],  np.concatenate((ids[idx1], ids[idx2])), sysID_max+1)
+            m1 = self.systems[idx1].mass
+            m2 = self.systems[idx2].mass
+            h1 = self.systems[idx1].soft
+            h2 = self.systems[idx2].soft
+            a_com = (m1 * self.systems[idx1].accel + m2 * self.systems[idx2].accel) / (m1 + m2)
+
+            ss_new = system(row[4:7], row[7:10], row[10]+row[11], h1+h2, np.concatenate((ids[idx1], ids[idx2])), a_com, sysID_max+1)
             ss_new.add_orbit(self.systems[idx1].orbits)
             ss_new.add_orbit(self.systems[idx2].orbits)
             ss_new.add_orbit([row])
@@ -283,9 +315,24 @@ class cluster(object):
 
 def main():
     snapshot_file = "snapshot_245.hdf5"
-    den, x, m, h, u, b, v, t, fmol, fneu, partpos, partmasses, partvels, partids, tcgs, unit_base = load_data(snapshot_file, res_limit=1e-3)
-    cl = cluster(partpos, partvels, partmasses, partids)
-    with open("tmp_245.p", "wb") as ff:
+    # den, x, m, h, u, b, v, t, fmol, fneu, partpos, partmasses, partvels, partids, tcgs, unit_base = load_data(snapshot_file, res_limit=1e-3)
+    # cl = cluster(partpos, partvels, partmasses, partids)
+    den, x, m, h, u, b, v, t, fmol, fneu, partpos, partmasses, partvels, partids, partsink, tcgs, unit_base = load_data(snapshot_file, res_limit=1e-3)
+    xuniq, indx = np.unique(x, return_index=True, axis=0)
+    muniq = m[indx]
+    huniq = h[indx]
+    xuniq = xuniq.astype(np.float64)
+    muniq = muniq.astype(np.float64)
+    huniq = huniq.astype(np.float64)
+    partpos = partpos.astype(np.float64)
+    partmasses = partmasses.astype(np.float64)
+    partsink = partsink.astype(np.float64)
+
+    accel_gas = pytreegrav.AccelTarget(partpos, xuniq, muniq, h_target=partsink, h_source=huniq, G=4.301e3)
+    accel_stars = pytreegrav.Accel(partpos, partmasses, partsink, method='bruteforce', G=4.301e3)
+
+    cl = cluster(partpos, partvels, partmasses, partsink, partids, accel_stars + accel_gas)
+    with open("tmp_245_TidesTrue.p", "wb") as ff:
         pickle.dump(cl, ff)
 
 
