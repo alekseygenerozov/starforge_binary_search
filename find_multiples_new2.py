@@ -8,7 +8,6 @@ import argparse
 import warnings
 
 
-
 def load_data(file, res_limit=0.0):
     """ file - h5pdf5 STARFORGE snapshot
         res_limit - minimum mass resolution to include in analyis (in code units)
@@ -108,7 +107,7 @@ def get_orbit(p1, p2, v1, v2, m1, m2, G=4.301e3):
     ##Angular momentum in binary com
     j_bin = m1*np.cross(p1_com, v1_com) + m2*np.cross(p2_com, v2_com)
     ##Angular momentum of binary com
-    j_com = (m1 + m2)*np.cross(p1_com, v1_com)
+    j_com = (m1 + m2)*np.cross(com, com_vel)
 
     #Inclination
     i_bin = np.arccos(np.dot(j_bin, j_com)/np.linalg.norm(j_bin)/np.linalg.norm(j_com))*180./np.pi
