@@ -5,6 +5,9 @@ import pickle
 import pytreegrav
 import argparse
 
+import warnings
+
+
 
 def load_data(file, res_limit=0.0):
     """ file - h5pdf5 STARFORGE snapshot
@@ -223,9 +226,10 @@ class cluster(object):
     :param Array-like accels: Particle accelerations
 
     """
-    def __init__(self, ps, vs, ms, partsink, ids, accels, tides=True, Ngrid1D=1):
+    def __init__(self, ps, vs, ms, partsink, ids, accels, tides=True, Ngrid1D=1, sma_order=False):
         self.G = 4.301e3
         self.Ngrid1D = Ngrid1D
+        self.sma_order = sma_order
         self.systems = []
         ##Adding each star as a system
         for ii in range(len(ps)):
@@ -321,8 +325,12 @@ class cluster(object):
         accel = self.get_system_accel
 
         ens = -self.G*orb_all[:, 10]*orb_all[:, 11]/(2.*orb_all[:, 0])
+        if self.sma_order:
+            ens = orb_all[:, 0]
         en_order = np.argsort(ens)
         orb_all = orb_all[en_order]
+        ##Filter out negative smas to save time here [?]
+        orb_all = orb_all[orb_all[:, 0] > 0]
 
         for row in orb_all:
             ID1 = int(row[-2])
@@ -420,9 +428,11 @@ class cluster(object):
 def main():
     parser = argparse.ArgumentParser(description="Parse starforge snapshot, and get multiple data.")
     parser.add_argument("snap", help="Name of snapshot to read")
+    parser.add_argument("--sma_order", action="store_true", help="Assemble hierarchy by sma instead of binding energy")
     args = parser.parse_args()
 
     snapshot_file = args.snap
+    sma_order = args.sma_order
     # den, x, m, h, u, b, v, t, fmol, fneu, partpos, partmasses, partvels, partids, tcgs, unit_base = load_data(snapshot_file, res_limit=1e-3)
     # cl = cluster(partpos, partvels, partmasses, partids)
     den, x, m, h, u, b, v, t, fmol, fneu, partpos, partmasses, partvels, partids, partsink, tcgs, unit_base = load_data(snapshot_file, res_limit=1e-3)
@@ -439,12 +449,12 @@ def main():
     accel_gas = pytreegrav.AccelTarget(partpos, xuniq, muniq, h_target=partsink, h_source=huniq, G=4.301e3)
     accel_stars = pytreegrav.Accel(partpos, partmasses, partsink, method='bruteforce', G=4.301e3)
     #
-    cl = cluster(partpos, partvels, partmasses, partsink, partids, accel_stars + accel_gas)
-    with open(snapshot_file.replace(".hdf5", "")+"_TidesTrue.p", "wb") as ff:
+    cl = cluster(partpos, partvels, partmasses, partsink, partids, accel_stars + accel_gas, sma_order=sma_order)
+    with open(snapshot_file.replace(".hdf5", "")+"_TidesTrue"+"_smaOrder{0}".format(sma_order)+".p", "wb") as ff:
         pickle.dump(cl, ff)
 
-    cl = cluster(partpos, partvels, partmasses, partsink, partids, accel_stars + accel_gas, tides=False)
-    with open(snapshot_file.replace(".hdf5", "")+"_TidesFalse.p", "wb") as ff:
+    cl = cluster(partpos, partvels, partmasses, partsink, partids, accel_stars + accel_gas, tides=False, sma_order=sma_order)
+    with open(snapshot_file.replace(".hdf5", "")+"_TidesFalse"+"_smaOrder{0}".format(sma_order)+".p", "wb") as ff:
         pickle.dump(cl, ff)
 
 
