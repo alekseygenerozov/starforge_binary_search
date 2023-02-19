@@ -3,6 +3,7 @@ import h5py
 from itertools import combinations
 import pickle
 import pytreegrav
+import argparse
 
 
 def load_data(file, res_limit=0.0):
@@ -416,7 +417,11 @@ class cluster(object):
 
 
 def main():
-    snapshot_file = "snapshot_245.hdf5"
+    parser = argparse.ArgumentParser(description="Parse starforge snapshot, and get multiple data.")
+    parser.add_argument("snap", help="Name of snapshot to read")
+    args = parser.parse_args()
+
+    snapshot_file = args.snap
     # den, x, m, h, u, b, v, t, fmol, fneu, partpos, partmasses, partvels, partids, tcgs, unit_base = load_data(snapshot_file, res_limit=1e-3)
     # cl = cluster(partpos, partvels, partmasses, partids)
     den, x, m, h, u, b, v, t, fmol, fneu, partpos, partmasses, partvels, partids, partsink, tcgs, unit_base = load_data(snapshot_file, res_limit=1e-3)
@@ -433,12 +438,12 @@ def main():
     accel_gas = pytreegrav.AccelTarget(partpos, xuniq, muniq, h_target=partsink, h_source=huniq, G=4.301e3)
     accel_stars = pytreegrav.Accel(partpos, partmasses, partsink, method='bruteforce', G=4.301e3)
     #
-    # cl = cluster(partpos, partvels, partmasses, partsink, partids, accel_stars + accel_gas)
-    # with open("tmp_245_TidesTrue.p", "wb") as ff:
-    #     pickle.dump(cl, ff)
+    cl = cluster(partpos, partvels, partmasses, partsink, partids, accel_stars + accel_gas)
+    with open(snapshot_file.replace(".hdf5", "")+"_TidesTrue.p", "wb") as ff:
+        pickle.dump(cl, ff)
 
     cl = cluster(partpos, partvels, partmasses, partsink, partids, accel_stars + accel_gas, tides=False)
-    with open("tmp_245_TidesFalse.p", "wb") as ff:
+    with open(snapshot_file.replace(".hdf5", "")+"_TidesFalse.p", "wb") as ff:
         pickle.dump(cl, ff)
 
 
