@@ -114,22 +114,35 @@ def get_orbit(p1, p2, v1, v2, m1, m2, G=4.301e3):
     return a_bin, e_bin, i_bin, dp, com[0], com[1], com[2], com_vel[0], com_vel[1], com_vel[2], m1, m2
 
 
-def select_in_subregion(x, max_dist=0.1):
-    dx=np.max(x[:,0])-np.min(x[:,0]);dy=np.max(x[:,1])-np.min(x[:,1]);dz=np.max(x[:,2])-np.min(x[:,2]);
-    #Ngrid1D = int(np.clip(np.min([dx, dy, dz]) / max_dist, 1, np.max([5, len(x) ** 0.33])));
-    Ngrid1D = 1
+def select_in_subregion(x, Ngrid1D=1):
+    """
+    Partitions array of 3D positions into subregions
 
-    xmin=np.min(x[:,0]);xmax=np.max(x[:,0]); dx=(xmax-xmin)/(Ngrid1D)
-    ymin=np.min(x[:,1]);ymax=np.max(x[:,1]); dy=(ymax-ymin)/(Ngrid1D)
-    zmin=np.min(x[:,2]);zmax=np.max(x[:,2]); dz=(zmax-zmin)/(Ngrid1D)
+    :param Array-like x: Array of positions
+    :param int Ngrid1D: Linear dimension of the grid.
+    """
+    xmin = np.min(x[:, 0])
+    xmax = np.max(x[:, 0])
+    dx = (xmax-xmin)/(Ngrid1D)
+
+    ymin = np.min(x[:, 1])
+    ymax = np.max(x[:, 1])
+    dy = (ymax-ymin)/(Ngrid1D)
+
+    zmin = np.min(x[:, 2])
+    zmax = np.max(x[:, 2])
+    dz = (zmax-zmin)/(Ngrid1D)
 
     regions = []
     for grid_ind in range(Ngrid1D*Ngrid1D*Ngrid1D):
-        x_ind = ( grid_ind % Ngrid1D);
-        y_ind = ( (grid_ind-x_ind) % (Ngrid1D*Ngrid1D))/Ngrid1D;
-        z_ind = (grid_ind-x_ind-y_ind*Ngrid1D)/(Ngrid1D*Ngrid1D);
-        xlim = xmin+x_ind*dx; ylim = ymin+y_ind*dy; zlim = zmin+z_ind*dz;
-        regions.append((x[:,0]>=xlim) & (x[:,0]<=(xlim+dx)) & (x[:,1]>=ylim) & (x[:,1]<=(ylim+dy)) & (x[:,2]>=zlim) & (x[:,2]<=(zlim+dz)))
+        x_ind = (grid_ind % Ngrid1D)
+        y_ind = ((grid_ind-x_ind) % (Ngrid1D*Ngrid1D))/Ngrid1D
+        z_ind = (grid_ind-x_ind-y_ind*Ngrid1D)/(Ngrid1D*Ngrid1D)
+        xlim = xmin+x_ind*dx
+        ylim = ymin+y_ind*dy
+        zlim = zmin+z_ind*dz
+
+        regions.append((x[:, 0] >= xlim) & (x[:, 0] <= (xlim+dx)) & (x[:, 1] >= ylim) & (x[:, 1] <= (ylim+dy)) & (x[:, 2] >= zlim) & (x[:, 2] <= (zlim+dz)))
     return regions
 
 def check_tides(pos, mass, accel, soft, idx1, idx2, G):
@@ -208,9 +221,9 @@ class cluster(object):
     :param Array-like accels: Particle accelerations
 
     """
-    def __init__(self, ps, vs, ms, partsink, ids, accels, tides=True, max_dist=0.1):
+    def __init__(self, ps, vs, ms, partsink, ids, accels, tides=True, Ngrid1D=1):
         self.G = 4.301e3
-        self.max_dist = max_dist
+        self.Ngrid1D = Ngrid1D
         self.systems = []
         ##Adding each star as a system
         for ii in range(len(ps)):
@@ -219,7 +232,7 @@ class cluster(object):
         self.tides = tides
         ##Partition stars into different subregions -- copied from one of existing binary-finding codes.
         ##Can help with performance.
-        self.regions = select_in_subregion(self.get_system_position, max_dist = self.max_dist)
+        self.regions = select_in_subregion(self.get_system_position, Ngrid1D=self.Ngrid1D)
         self.orb_all = []
         self._calculate_orbits()
         conv = False
@@ -264,7 +277,7 @@ class cluster(object):
         Computes pairwise orbits in each subregion, populating orb_all.
         Each entry in orb_all contains 14 entries:
 
-        The semimajor axis, eccentricity, inclination, the particle separation, com position, com velocity, m1, and m2.
+        The semimajor axis, eccentricity, inclination, the particle separation, com position, com velocity, m1, m2, and the system IDs.
 
         orb_all is then adjusted as systems are combined hierarchically, using the methods
         orb_adjust_delete and orb_adjust_add.
