@@ -148,6 +148,7 @@ def select_in_subregion(x, Ngrid1D=1):
 
 def check_tides(pos, mass, accel, soft, idx1, idx2, G):
     """
+    Check whether tidal force is greater than two-body force between two binaries.
 
     :param Array-like mass: Particle positions
     :param Array-like pos: Particle positions
