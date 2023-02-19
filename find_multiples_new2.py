@@ -67,11 +67,20 @@ def load_data(file, res_limit=0.0):
     return den, x, m, h, u, b, v, t, fmol, fneu, partpos, partmasses, partvels, partids, partsink, tcgs, unit_base
 
 
+
 def get_orbit(p1, p2, v1, v2, m1, m2, G=4.301e3):
     """
     Auxiliary function to get binary properties for two particles.
 
-    p1, p2 -- particle position
+    :param Array-like p1: -- Array with 1st particle position (3D)
+    :param Array-like p2: -- Array with 2nd particle position (3D)
+    :param Array-like v1: -- Array with 1st particle velocity (3D)
+    :param Array-like v2: -- Array with 2nd particle velocity (3D)
+    :param float m1: -- 1st particle mass
+    :param float m2: -- 2nd particle mass
+
+    :return: The semimajor axis, eccentricity, inclination, the particle separation, com position, com velocity, m1, and m2.
+    :rtype: tuple
     """
     dp = np.linalg.norm(p1 - p2)
 
@@ -123,9 +132,42 @@ def select_in_subregion(x, max_dist=0.1):
         regions.append((x[:,0]>=xlim) & (x[:,0]<=(xlim+dx)) & (x[:,1]>=ylim) & (x[:,1]<=(ylim+dy)) & (x[:,2]>=zlim) & (x[:,2]<=(zlim+dz)))
     return regions
 
+def check_tides(pos, mass, accel, soft, idx1, idx2, G):
+    """
+
+    :param Array-like mass: Particle positions
+    :param Array-like pos: Particle positions
+    :param Array-like accel: Particle accelerations
+    :param Array-like soft: Softening length
+    :param int idx1: First particle index
+    :param int idx2: Second particle index
+
+    :return: Boolean indicating whether tidal force exceed the internal two-body force.
+    :rtype: bool
+
+    """
+    f2body_i = mass[idx1] * pytreegrav.AccelTarget(np.atleast_2d(pos[idx1]), np.atleast_2d(pos[idx2]),
+                                                   np.atleast_1d(mass[idx2]), h_target=np.atleast_1d(soft[idx1]),
+                                                   h_source=np.atleast_1d(soft[idx2]), G=G)
+    com_accel = (mass[idx1] * accel[idx1] + mass[idx2] * accel[idx2]) / (mass[idx1] + mass[idx2])
+    f_tides = mass[idx1] * (accel[idx1] - com_accel) - f2body_i
+
+    tidal_crit = (np.linalg.norm(f_tides) < np.linalg.norm(f2body_i))
+    return tidal_crit
 
 
 class system(object):
+    """
+    Class storing single bound system within the cluster
+
+    :param Array-like p1: Particle position
+    :param Array-like v1: Particle velocity
+    :param float m1: Particle mass
+    :param float h1: Softening length
+    :param Array-like id1: Particle ID(s)
+    :param int sysID: Unique ID
+
+    """
     def __init__(self, p1, v1, m1, h1, id1, accel, sysID):
         self.pos = np.copy(p1)
         self.vel = np.copy(v1)
@@ -141,27 +183,47 @@ class system(object):
 
     @property
     def multiplicity(self):
+        """
+        Multiplcity of system
+        """
         return len(self.ids)
 
     def add_orbit(self, orb):
+        """
+        Add orbit to system
+        """
         self.orbits = np.concatenate((self.orbits, orb))
 
 
 class cluster(object):
-    def __init__(self, ps, vs, ms, partsink, ids, accels, tides=True):
+    """
+    Store system information from stellar data in  starforge snapshot, grouping stars hierarchically
+    into bound pairs.
+
+    :param Array-like ps: Particle positions
+    :param Array-like vs: Particle velocities
+    :param Array-like ms: Particle masses
+    :param Array-like partsink: Softening lengths
+    :param Array-like ids: Particle ids
+    :param Array-like accels: Particle accelerations
+
+    """
+    def __init__(self, ps, vs, ms, partsink, ids, accels, tides=True, max_dist=0.1):
         self.G = 4.301e3
-        self.max_dist = 0.1
+        self.max_dist = max_dist
         self.systems = []
         ##Adding each star as a system
         for ii in range(len(ps)):
             self.systems.append(system(ps[ii], vs[ii], ms[ii], partsink[ii], ids[ii], accels[ii], ii))
         self.systems = np.array(self.systems)
         self.tides = tides
-        ##Compute orbits of stars in different subregions -- select in subregion copied from previous code.
+        ##Partition stars into different subregions -- copied from one of existing binary-finding codes.
+        ##Can help with performance.
         self.regions = select_in_subregion(self.get_system_position, max_dist = self.max_dist)
         self.orb_all = []
         self._calculate_orbits()
         conv = False
+        ##Look for the most bound systems until we converge.
         while not conv:
             systems_start = [ss.multiplicity for ss in self.systems]
             self._find_binaries_all()
@@ -197,11 +259,16 @@ class cluster(object):
     def get_system_accel(self):
         return np.array([ss.accel for ss in self.systems])
 
-    def _find_binaries_all(self):
-        for ii in range(len(self.regions)):
-            self._find_bin_region(ii)
-
     def _calculate_orbits(self):
+        """
+        Computes pairwise orbits in each subregion, populating orb_all.
+        Each entry in orb_all contains 14 entries:
+
+        The semimajor axis, eccentricity, inclination, the particle separation, com position, com velocity, m1, and m2.
+
+        orb_all is then adjusted as systems are combined hierarchically, using the methods
+        orb_adjust_delete and orb_adjust_add.
+        """
         for region in self.regions:
             pos = self.get_system_position[region]
             vel = self.get_system_vel[region]
@@ -215,34 +282,20 @@ class cluster(object):
                 orb_region.append(np.concatenate((get_orbit(pos[i], pos[j], vel[i], vel[j], mass[i], mass[j], G=self.G),
                                                   [self.systems[idx[i]].sysID, self.systems[idx[j]].sysID])))
             self.orb_all.append(np.array(orb_region))
-        self.orb_all = self.orb_all
 
-
-    def _orbit_adjust_delete(self, ii, ID1, ID2):
-        ##Have to account for the fact that binary deletion just took place in the indexing -- Otherwise things will go wrong!
-        combos_all = self.orb_all[ii][:, -2:].astype(int)
-        test1 = np.where(np.any(ID1 == combos_all, axis=1))[0]
-        test2 = np.where(np.any(ID2 == combos_all, axis=1))[0]
-
-        to_delete = np.concatenate((test1, test2))
-        self.orb_all[ii] = np.delete(self.orb_all[ii], to_delete, axis=0)
-
-    def _orbit_adjust_add(self, ii, ID_NEW):
-        regionIDs = np.unique(self.orb_all[ii][:, -2].astype(int).ravel())
-        sysIDs = self.get_system_ids_b
-        pos = self.get_system_position
-        vel = self.get_system_vel
-        mass = self.get_system_mass
-
-        idx1 = np.where(sysIDs == ID_NEW)[0][0]
-        for id_it in regionIDs:
-            j = np.where(id_it == sysIDs)[0][0]
-            tmp = get_orbit(pos[idx1], pos[j], vel[idx1], vel[j], mass[idx1], mass[j], G=self.G)
-            tmp = np.concatenate((tmp, [ID_NEW, id_it]))
-            self.orb_all[ii] = np.append(self.orb_all[ii], tmp)
-            self.orb_all[ii].shape = (-1, 14)
+    def _find_binaries_all(self):
+        """
+        Find most-bound binaries in each subregion
+        """
+        for ii in range(len(self.regions)):
+            self._find_bin_region(ii)
 
     def _find_bin_region(self, ii):
+        """
+        Find the binary with the largest binding energy in a given subregion.
+
+        :param int ii: index of the subregion.
+        """
         orb_all = self.orb_all[ii]
         if len(orb_all) < 1:
             return
@@ -263,23 +316,29 @@ class cluster(object):
             idx2 = np.where(sysIDs == ID2)[0][0]
 
             mult_total = self.systems[idx1].multiplicity + self.systems[idx2].multiplicity
-            ###Tidal criterion: try to refactor since this is the heart of what I am adding to the method...
-            f2body_i = mass[idx1] * pytreegrav.AccelTarget(np.atleast_2d(pos[idx1]), np.atleast_2d(pos[idx2]),
-                                                        np.atleast_1d(mass[idx2]), h_target=np.atleast_1d(soft[idx1]),
-                                                        h_source=np.atleast_1d(soft[idx2]), G=self.G)
-            com_accel = (mass[idx1] * accel[idx1] + mass[idx2] * accel[idx2]) / (mass[idx1] + mass[idx2])
-            f_tides = mass[idx1] * (accel[idx1] - com_accel) - f2body_i
-
-            tidal_crit = (np.linalg.norm(f_tides) < np.linalg.norm(f2body_i)) or (not self.tides)
+            ###Tidal criterion:
+            tidal_crit = check_tides(pos, mass, accel, soft, idx1, idx2, self.G)
+            tidal_crit = (tidal_crit) or (not self.tides)
+            ##Check that binary is bound, multiplicity is less than four, and that the binary is tidally stable. Tides can be turned off by setting self.tides to False.
             if row[0] > 0 and (mult_total <= 4) and tidal_crit:
                 print("adding {0}".format(mult_total))
-                flag, ID_NEW = self._combine_binaries(row)
-                if flag:
-                    self._orbit_adjust_delete(ii, ID1, ID2)
-                    self._orbit_adjust_add(ii, ID_NEW)
+                ID_NEW = self._combine_binaries(row)
+
+                self._orbit_adjust_delete(ii, ID1, ID2)
+                self._orbit_adjust_add(ii, ID_NEW)
                 return
 
     def _combine_binaries(self, row):
+        """
+        Adjusts array of systems after a binary has been found.
+        The members of the bound pair are removed from the systems array and
+        then a single new system replaces them.
+
+        :param row Array-like: Binary data of bound pair from orb_all.
+        :return: ID for new system that is added
+        :rtype: int
+        """
+
         sysIDs = self.get_system_ids_b
         sysID_max = np.max(sysIDs)
 
@@ -290,27 +349,57 @@ class cluster(object):
         idx1 = np.where(sysIDs == row[-2])[0][0]
         idx2 = np.where(sysIDs == row[-1])[0][0]
 
-        ##Can refactor: First conditional is not necessary, just don't filter out binaries in this case
-        flag = 0
-        if self.systems[idx1].multiplicity + self.systems[idx2].multiplicity > 4:
-            systems_new = np.concatenate((systems_new, [self.systems[idx1], self.systems[idx2]]))
-            flag = 0
-        else:
-            m1 = self.systems[idx1].mass
-            m2 = self.systems[idx2].mass
-            h1 = self.systems[idx1].soft
-            h2 = self.systems[idx2].soft
-            a_com = (m1 * self.systems[idx1].accel + m2 * self.systems[idx2].accel) / (m1 + m2)
+        m1 = self.systems[idx1].mass
+        m2 = self.systems[idx2].mass
+        h1 = self.systems[idx1].soft
+        h2 = self.systems[idx2].soft
+        a_com = (m1 * self.systems[idx1].accel + m2 * self.systems[idx2].accel) / (m1 + m2)
 
-            ss_new = system(row[4:7], row[7:10], row[10]+row[11], h1+h2, np.concatenate((ids[idx1], ids[idx2])), a_com, sysID_max+1)
-            ss_new.add_orbit(self.systems[idx1].orbits)
-            ss_new.add_orbit(self.systems[idx2].orbits)
-            ss_new.add_orbit([row])
-            systems_new = np.concatenate((systems_new, [ss_new]))
-            flag = 1
+        ss_new = system(row[4:7], row[7:10], row[10] + row[11], h1 + h2, np.concatenate((ids[idx1], ids[idx2])), a_com,
+                        sysID_max + 1)
+        ss_new.add_orbit(self.systems[idx1].orbits)
+        ss_new.add_orbit(self.systems[idx2].orbits)
+        ss_new.add_orbit([row])
+        systems_new = np.concatenate((systems_new, [ss_new]))
+
         self.systems = systems_new
-        return flag, sysID_max + 1
-        # print(len(self.systems))
+        return sysID_max + 1
+
+    def _orbit_adjust_delete(self, ii, ID1, ID2):
+        """
+        Used to adjust orb_all after a binary has been found.
+
+        Once we find the most bound binary stars, they are combined into a single system.
+        The entries corresponding to these stars in orb_all should then be deleted.
+        """
+        combos_all = self.orb_all[ii][:, -2:].astype(int)
+        test1 = np.where(np.any(ID1 == combos_all, axis=1))[0]
+        test2 = np.where(np.any(ID2 == combos_all, axis=1))[0]
+
+        to_delete = np.concatenate((test1, test2))
+        self.orb_all[ii] = np.delete(self.orb_all[ii], to_delete, axis=0)
+
+    def _orbit_adjust_add(self, ii, ID_NEW):
+        """
+        Used to adjust orb_all after a binary has been found.
+
+        Once we find the most bound binary stars, they are combined into a single system.
+        The entries corresponding to these stars in orb_all should then be deleted.
+        """
+
+        regionIDs = np.unique(self.orb_all[ii][:, -2].astype(int).ravel())
+        sysIDs = self.get_system_ids_b
+        pos = self.get_system_position
+        vel = self.get_system_vel
+        mass = self.get_system_mass
+
+        idx1 = np.where(sysIDs == ID_NEW)[0][0]
+        for id_it in regionIDs:
+            j = np.where(id_it == sysIDs)[0][0]
+            tmp = get_orbit(pos[idx1], pos[j], vel[idx1], vel[j], mass[idx1], mass[j], G=self.G)
+            tmp = np.concatenate((tmp, [ID_NEW, id_it]))
+            self.orb_all[ii] = np.append(self.orb_all[ii], tmp)
+            self.orb_all[ii].shape = (-1, 14)
 
 
 def main():
@@ -330,10 +419,15 @@ def main():
 
     accel_gas = pytreegrav.AccelTarget(partpos, xuniq, muniq, h_target=partsink, h_source=huniq, G=4.301e3)
     accel_stars = pytreegrav.Accel(partpos, partmasses, partsink, method='bruteforce', G=4.301e3)
+    #
+    # cl = cluster(partpos, partvels, partmasses, partsink, partids, accel_stars + accel_gas)
+    # with open("tmp_245_TidesTrue.p", "wb") as ff:
+    #     pickle.dump(cl, ff)
 
-    cl = cluster(partpos, partvels, partmasses, partsink, partids, accel_stars + accel_gas)
-    with open("tmp_245_TidesTrue.p", "wb") as ff:
+    cl = cluster(partpos, partvels, partmasses, partsink, partids, accel_stars + accel_gas, tides=False)
+    with open("tmp_245_TidesFalse.p", "wb") as ff:
         pickle.dump(cl, ff)
+
 
 
 if __name__ == "__main__":
