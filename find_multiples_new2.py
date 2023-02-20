@@ -345,9 +345,10 @@ class cluster(object):
             if row[0] > 0 and (mult_total <= 4) and tidal_crit:
                 print("adding {0}".format(mult_total))
                 ID_NEW = self._combine_binaries(row)
-
-                self._orbit_adjust_delete(ii, ID1, ID2)
+                ##Put add operation first to deal with special case of only three stars
                 self._orbit_adjust_add(ii, ID_NEW)
+                self._orbit_adjust_delete(ii, ID1, ID2)
+
                 return
 
     def _combine_binaries(self, row):
@@ -411,6 +412,7 @@ class cluster(object):
 
         regionIDs = np.unique(self.orb_all[ii][:, -2].astype(int).ravel())
         sysIDs = self.get_system_ids_b
+        regionIDs = regionIDs[np.isin(regionIDs, sysIDs)]
         pos = self.get_system_position
         vel = self.get_system_vel
         mass = self.get_system_mass
