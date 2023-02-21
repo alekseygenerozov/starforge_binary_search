@@ -113,7 +113,7 @@ def get_orbit(p1, p2, v1, v2, m1, m2, G=4.301e3):
     i_bin = np.arccos(np.dot(j_bin, j_com)/np.linalg.norm(j_bin)/np.linalg.norm(j_com))*180./np.pi
     mu = m1*m2/(m1+m2)
     ##Eccentricity of the binary *squared*
-    e_bin = (1.-np.linalg.norm(j_bin)**2./(G*(m1+m2)*a_bin)/(mu**2.))
+    e_bin = np.sqrt(1.-np.linalg.norm(j_bin)**2./(G*(m1+m2)*a_bin)/(mu**2.))
     return a_bin, e_bin, i_bin, dp, com[0], com[1], com[2], com_vel[0], com_vel[1], com_vel[2], m1, m2
 
 
