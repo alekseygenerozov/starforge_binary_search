@@ -172,6 +172,12 @@ def check_tides(pos, mass, accel, soft, idx1, idx2, G):
     tidal_crit = (np.linalg.norm(f_tides) < np.linalg.norm(f2body_i))
     return tidal_crit
 
+def flatten_ids(id):
+    """
+    Convert arbitrary nested list of numbers into a 1D numpy array (i.e. flatten hierarchy to get list of ids
+    in a given system
+    """
+    return np.array(str(id).replace("[", "").replace("]", "").split(",")).astype(int)
 
 class system(object):
     """
@@ -181,8 +187,8 @@ class system(object):
     :param Array-like v1: Particle velocity
     :param float m1: Particle mass
     :param float h1: Softening length
-    :param Array-like id1: Particle ID(s)
-    :param int sysID: Unique ID
+    :param Array-like id1: Particle ID(s) [Can store hierarchy!]
+    :param int sysID: ID that can be used to tag a system
 
     """
     def __init__(self, p1, v1, m1, h1, id1, accel, sysID):
@@ -192,11 +198,10 @@ class system(object):
         self.soft = h1
         self.accel = accel
 
-        self.orbits = np.zeros((0, 14))
-        self.ids = np.atleast_1d(id1)
+        self.orbits = np.zeros((0, 16))
         self.sysID = sysID
-        # self.child_pos
-        # self.child_vel
+        self.hierarchy = id1
+        self.ids = flatten_ids(id1)
 
     @property
     def multiplicity(self):
@@ -270,6 +275,10 @@ class cluster(object):
         return np.array([ss.sysID for ss in self.systems])
 
     @property
+    def get_system_hierarchies(self):
+        return [ss.hierarchy for ss in self.systems]
+
+    @property
     def get_system_soft(self):
         return np.array([ss.soft for ss in self.systems])
 
@@ -280,7 +289,7 @@ class cluster(object):
     def _calculate_orbits(self):
         """
         Computes pairwise orbits in each subregion, populating orb_all.
-        Each entry in orb_all contains 14 entries:
+        Each entry in orb_all contains 16 entries:
 
         The semimajor axis, eccentricity, inclination, the particle separation, com position, com velocity, m1, m2, and the system IDs.
 
@@ -298,7 +307,7 @@ class cluster(object):
                 i = combo[0]
                 j = combo[1]
                 orb_region.append(np.concatenate((get_orbit(pos[i], pos[j], vel[i], vel[j], mass[i], mass[j], G=self.G),
-                                                  [self.systems[idx[i]].sysID, self.systems[idx[j]].sysID])))
+                                                  [self.systems[idx[i]].ids[0], self.systems[idx[j]].ids[0], self.systems[idx[i]].sysID, self.systems[idx[j]].sysID])))
             self.orb_all.append(np.array(orb_region))
 
     def _find_binaries_all(self):
@@ -328,7 +337,7 @@ class cluster(object):
             ens = orb_all[:, 0]
         en_order = np.argsort(ens)
         orb_all = orb_all[en_order]
-        ##Filter out negative smas to save time here [?]
+        ##Filter out negative smas to save time here
         orb_all = orb_all[orb_all[:, 0] > 0]
 
         for row in orb_all:
@@ -367,7 +376,7 @@ class cluster(object):
 
         filt = ~np.isin(sysIDs, row[-2:].astype(int).ravel())
         systems_new = self.systems[filt]
-        ids = self.get_system_ids
+        hierarchies = self.get_system_hierarchies
 
         idx1 = np.where(sysIDs == row[-2])[0][0]
         idx2 = np.where(sysIDs == row[-1])[0][0]
@@ -378,7 +387,7 @@ class cluster(object):
         h2 = self.systems[idx2].soft
         a_com = (m1 * self.systems[idx1].accel + m2 * self.systems[idx2].accel) / (m1 + m2)
 
-        ss_new = system(row[4:7], row[7:10], row[10] + row[11], h1 + h2, np.concatenate((ids[idx1], ids[idx2])), a_com,
+        ss_new = system(row[4:7], row[7:10], row[10] + row[11], h1 + h2, [hierarchies[idx1], hierarchies[idx2]], a_com,
                         sysID_max + 1)
         ss_new.add_orbit(self.systems[idx1].orbits)
         ss_new.add_orbit(self.systems[idx2].orbits)
@@ -416,14 +425,15 @@ class cluster(object):
         pos = self.get_system_position
         vel = self.get_system_vel
         mass = self.get_system_mass
+        ids = self.get_system_ids
 
         idx1 = np.where(sysIDs == ID_NEW)[0][0]
         for id_it in regionIDs:
             j = np.where(id_it == sysIDs)[0][0]
             tmp = get_orbit(pos[idx1], pos[j], vel[idx1], vel[j], mass[idx1], mass[j], G=self.G)
-            tmp = np.concatenate((tmp, [ID_NEW, id_it]))
+            tmp = np.concatenate((tmp, [ids[idx1][0], ids[j][0], ID_NEW, id_it]))
             self.orb_all[ii] = np.append(self.orb_all[ii], tmp)
-            self.orb_all[ii].shape = (-1, 14)
+            self.orb_all[ii].shape = (-1, 16)
 
 
 def main():
