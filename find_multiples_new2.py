@@ -25,6 +25,7 @@ def load_data(file, res_limit=0.0):
     den = f['PartType0']['Density'][:] * mask
     # Spatial positions
     x = f['PartType0']['Coordinates'] * mask3d
+
     # Mass of each cell/partical
     m = f['PartType0']['Masses'][:] * mask
     # Calculation smoothing length, useful for weighting and/or visualization
@@ -100,7 +101,7 @@ def get_orbit(p1, p2, v1, v2, m1, m2, G=4.301e3):
 
     ##Kinetic and potential energies
     ke = 0.5*m1*v12 + 0.5*m2*v22
-    ##Potential energy; Assumes G = 1
+    ##Potential energy ##TRY REPLACING WITH FUNCTIONALITY FROM PYTREEGRAV...
     pe = G*m1*m2/dp
 
     a_bin = G*(m1*m2)/(2.*(pe-ke))
@@ -150,7 +151,7 @@ def select_in_subregion(x, Ngrid1D=1):
 
 def check_tides(pos, mass, accel, soft, idx1, idx2, G):
     """
-    Check whether tidal force is greater than two-body force between two binaries.
+    Check whether tidal force is greater than two-body force between two stars.
 
     :param Array-like mass: Particle positions
     :param Array-like pos: Particle positions
@@ -199,6 +200,9 @@ class system(object):
         self.accel = accel
 
         self.orbits = np.zeros((0, 16))
+        self.sub_pos = np.zeros((0, 3))
+        self.sub_vel = np.zeros((0, 3))
+        self.sub_soft = np.zeros(0)
         self.sysID = sysID
         self.hierarchy = id1
         self.ids = flatten_ids(id1)
@@ -215,6 +219,24 @@ class system(object):
         Add orbit to system
         """
         self.orbits = np.concatenate((self.orbits, orb))
+
+    def add_sub_pos(self, pos):
+        """
+        Add position of system subcomponent
+        """
+        self.sub_pos = np.concatenate((self.sub_pos, pos))
+
+    def add_sub_vel(self, vel):
+        """
+        Add velocity of system subcomponent
+        """
+        self.sub_vel = np.concatenate((self.sub_vel, vel))
+
+    def add_sub_soft(self, h):
+        """
+        Add velocity of system subcomponent
+        """
+        self.sub_soft = np.concatenate((self.sub_soft, h))
 
 
 class cluster(object):
@@ -285,6 +307,10 @@ class cluster(object):
     @property
     def get_system_accel(self):
         return np.array([ss.accel for ss in self.systems])
+
+    @property
+    def get_system_mult(self):
+        return np.array([ss.multiplicity for ss in self.systems])
 
     def _calculate_orbits(self):
         """
@@ -392,6 +418,22 @@ class cluster(object):
         ss_new.add_orbit(self.systems[idx1].orbits)
         ss_new.add_orbit(self.systems[idx2].orbits)
         ss_new.add_orbit([row])
+
+        ss_new.add_sub_pos(self.systems[idx1].sub_pos)
+        ss_new.add_sub_pos(self.systems[idx2].sub_pos)
+        ss_new.add_sub_pos([self.systems[idx1].pos])
+        ss_new.add_sub_pos([self.systems[idx2].pos])
+
+        ss_new.add_sub_vel(self.systems[idx1].sub_vel)
+        ss_new.add_sub_vel(self.systems[idx2].sub_vel)
+        ss_new.add_sub_vel([self.systems[idx1].vel])
+        ss_new.add_sub_vel([self.systems[idx2].vel])
+
+        ss_new.add_sub_soft(self.systems[idx1].sub_soft)
+        ss_new.add_sub_soft(self.systems[idx2].sub_soft)
+        ss_new.add_sub_soft([self.systems[idx1].soft])
+        ss_new.add_sub_soft([self.systems[idx2].soft])
+
         systems_new = np.concatenate((systems_new, [ss_new]))
 
         self.systems = systems_new
@@ -440,6 +482,7 @@ def main():
     parser = argparse.ArgumentParser(description="Parse starforge snapshot, and get multiple data.")
     parser.add_argument("snap", help="Name of snapshot to read")
     parser.add_argument("--sma_order", action="store_true", help="Assemble hierarchy by sma instead of binding energy")
+    parser.add_argument("--halo_mass_file", default="", help="Name of file containing gas halo mass around sink particles")
     args = parser.parse_args()
 
     snapshot_file = args.snap
@@ -447,6 +490,11 @@ def main():
     # den, x, m, h, u, b, v, t, fmol, fneu, partpos, partmasses, partvels, partids, tcgs, unit_base = load_data(snapshot_file, res_limit=1e-3)
     # cl = cluster(partpos, partvels, partmasses, partids)
     den, x, m, h, u, b, v, t, fmol, fneu, partpos, partmasses, partvels, partids, partsink, tcgs, unit_base = load_data(snapshot_file, res_limit=1e-3)
+    halo_masses = np.zeros(len(partmasses))
+    if args.halo_mass_file:
+        halo_masses = np.genfromtxt(args.halo_mass_file)
+    partmasses += halo_masses
+
     xuniq, indx = np.unique(x, return_index=True, axis=0)
     muniq = m[indx]
     huniq = h[indx]
