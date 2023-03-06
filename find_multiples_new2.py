@@ -202,6 +202,7 @@ class system(object):
         self.orbits = np.zeros((0, 16))
         self.sub_pos = np.zeros((0, 3))
         self.sub_vel = np.zeros((0, 3))
+        self.sub_mass = np.zeros(0)
         self.sub_soft = np.zeros(0)
         self.sysID = sysID
         self.hierarchy = id1
@@ -232,9 +233,15 @@ class system(object):
         """
         self.sub_vel = np.concatenate((self.sub_vel, vel))
 
+    def add_sub_mass(self, mass):
+        """
+        Add mass of system subcomponent
+        """
+        self.sub_mass = np.concatenate((self.sub_mass, mass))
+
     def add_sub_soft(self, h):
         """
-        Add velocity of system subcomponent
+        Add softening length of system subcomponent
         """
         self.sub_soft = np.concatenate((self.sub_soft, h))
 
@@ -433,6 +440,11 @@ class cluster(object):
         ss_new.add_sub_soft(self.systems[idx2].sub_soft)
         ss_new.add_sub_soft([self.systems[idx1].soft])
         ss_new.add_sub_soft([self.systems[idx2].soft])
+
+        ss_new.add_sub_soft(self.systems[idx1].sub_mass)
+        ss_new.add_sub_soft(self.systems[idx2].sub_mass)
+        ss_new.add_sub_soft([self.systems[idx1].mass])
+        ss_new.add_sub_soft([self.systems[idx2].mass])
 
         systems_new = np.concatenate((systems_new, [ss_new]))
 
