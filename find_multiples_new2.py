@@ -165,8 +165,8 @@ def check_tides(pos, mass, accel, soft, idx1, idx2, G):
 
     """
     f2body_i = mass[idx1] * pytreegrav.AccelTarget(np.atleast_2d(pos[idx1]), np.atleast_2d(pos[idx2]),
-                                                   np.atleast_1d(mass[idx2]), h_target=np.atleast_1d(soft[idx1]),
-                                                   h_source=np.atleast_1d(soft[idx2]), G=G)
+                                                   np.atleast_1d(mass[idx2]), softening_target=np.atleast_1d(soft[idx1]),
+                                                   softening_source=np.atleast_1d(soft[idx2]), G=G)
     com_accel = (mass[idx1] * accel[idx1] + mass[idx2] * accel[idx2]) / (mass[idx1] + mass[idx2])
     f_tides = mass[idx1] * (accel[idx1] - com_accel) - f2body_i
 
@@ -441,10 +441,10 @@ class cluster(object):
         ss_new.add_sub_soft([self.systems[idx1].soft])
         ss_new.add_sub_soft([self.systems[idx2].soft])
 
-        ss_new.add_sub_soft(self.systems[idx1].sub_mass)
-        ss_new.add_sub_soft(self.systems[idx2].sub_mass)
-        ss_new.add_sub_soft([self.systems[idx1].mass])
-        ss_new.add_sub_soft([self.systems[idx2].mass])
+        ss_new.add_sub_mass(self.systems[idx1].sub_mass)
+        ss_new.add_sub_mass(self.systems[idx2].sub_mass)
+        ss_new.add_sub_mass([self.systems[idx1].mass])
+        ss_new.add_sub_mass([self.systems[idx2].mass])
 
         systems_new = np.concatenate((systems_new, [ss_new]))
 
@@ -517,7 +517,7 @@ def main():
     partmasses = partmasses.astype(np.float64)
     partsink = partsink.astype(np.float64)
 
-    accel_gas = pytreegrav.AccelTarget(partpos, xuniq, muniq, h_target=partsink, h_source=huniq, G=4.301e3)
+    accel_gas = pytreegrav.AccelTarget(partpos, xuniq, muniq, softening_target=partsink, softening_source=huniq, G=4.301e3)
     accel_stars = pytreegrav.Accel(partpos, partmasses, partsink, method='bruteforce', G=4.301e3)
     #
     cl = cluster(partpos, partvels, partmasses, partsink, partids, accel_stars + accel_gas, sma_order=sma_order)
