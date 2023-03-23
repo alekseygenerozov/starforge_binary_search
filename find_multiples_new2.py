@@ -259,8 +259,9 @@ class cluster(object):
     :param Array-like accels: Particle accelerations
 
     """
-    def __init__(self, ps, vs, ms, partsink, ids, accels, tides=True, Ngrid1D=1, sma_order=False):
+    def __init__(self, ps, vs, ms, partsink, ids, accels, tides=True, Ngrid1D=1, sma_order=False, mult_max=4):
         self.G = 4.301e3
+        self.mult_max = mult_max
         self.Ngrid1D = Ngrid1D
         self.sma_order = sma_order
         self.systems = []
@@ -384,7 +385,7 @@ class cluster(object):
             tidal_crit = check_tides(pos, mass, accel, soft, idx1, idx2, self.G)
             tidal_crit = (tidal_crit) or (not self.tides)
             ##Check that binary is bound, multiplicity is less than four, and that the binary is tidally stable. Tides can be turned off by setting self.tides to False.
-            if row[0] > 0 and (mult_total <= 4) and tidal_crit:
+            if row[0] > 0 and (mult_total <= self.mult_max) and tidal_crit:
                 print("adding {0}".format(mult_total))
                 ID_NEW = self._combine_binaries(row)
                 ##Put add operation first to deal with special case of only three stars
@@ -495,6 +496,7 @@ def main():
     parser.add_argument("snap", help="Name of snapshot to read")
     parser.add_argument("--sma_order", action="store_true", help="Assemble hierarchy by sma instead of binding energy")
     parser.add_argument("--halo_mass_file", default="", help="Name of file containing gas halo mass around sink particles")
+    parser.add_argument("--mult_max", type=int, default=4, help="Multiplicity cut (4).")
     args = parser.parse_args()
 
     snapshot_file = args.snap
@@ -520,12 +522,14 @@ def main():
     accel_gas = pytreegrav.AccelTarget(partpos, xuniq, muniq, softening_target=partsink, softening_source=huniq, G=4.301e3)
     accel_stars = pytreegrav.Accel(partpos, partmasses, partsink, method='bruteforce', G=4.301e3)
     #
-    cl = cluster(partpos, partvels, partmasses, partsink, partids, accel_stars + accel_gas, sma_order=sma_order)
-    with open(snapshot_file.replace(".hdf5", "")+"_TidesTrue"+"_smaOrder{0}".format(sma_order)+".p", "wb") as ff:
+    cl = cluster(partpos, partvels, partmasses, partsink, partids, accel_stars + accel_gas,
+                 sma_order=sma_order, mult_max=args.mult_max)
+    with open(snapshot_file.replace(".hdf5", "")+"_TidesTrue"+"_smaOrder{0}_mult{1}".format(sma_order, args.mult_max)+".p", "wb") as ff:
         pickle.dump(cl, ff)
 
-    cl = cluster(partpos, partvels, partmasses, partsink, partids, accel_stars + accel_gas, tides=False, sma_order=sma_order)
-    with open(snapshot_file.replace(".hdf5", "")+"_TidesFalse"+"_smaOrder{0}".format(sma_order)+".p", "wb") as ff:
+    cl = cluster(partpos, partvels, partmasses, partsink, partids, accel_stars + accel_gas, tides=False,
+                 sma_order=sma_order, mult_max=args.mult_max)
+    with open(snapshot_file.replace(".hdf5", "")+"_TidesFalse"+"_smaOrder{0}_mult{1}".format(sma_order, args.mult_max)+".p", "wb") as ff:
         pickle.dump(cl, ff)
 
 
