@@ -152,16 +152,19 @@ for ii, pp in enumerate(sys_pos):
     for idx in progressbar.progressbar(ord1):
         if d[idx]**.5 > 0.1:
             break
-        sma = get_sma_opt(sys_pos[ii].astype(np.float64), xuniq[idx].astype(np.float64),\
-                          sys_vel[ii].astype(np.float64), vuniq[idx].astype(np.float64),\
-                          sys_masses[ii], muniq[idx], sys_soft[ii], huniq[idx], 0., uuniq[idx], GN)
+
+        pe1 = muniq[idx] * pytreegrav.Potential(np.vstack((sys_sub_pos[ii], xuniq[idx])),\
+                     np.append(sys_sub_masses[ii], muniq[idx]),\
+                     np.append(sys_sub_soft[ii], huniq[idx]), G=GN, theta=0.7, method='bruteforce')[-1]
+        ke1 = KE(np.array([sys_pos[ii], xuniq[idx]]), np.array([sys_masses[ii], muniq[idx]]),\
+                 np.array([sys_vel[ii], vuniq[idx]]), np.array([0, uuniq[idx]]))
         tmp_pos = [xuniq[idx], sys_sub_pos[ii]]
         tmp_mass = [muniq[idx], sys_sub_masses[ii]]
         tmp_soft = [huniq[idx], sys_sub_soft[ii]]
         tmp_accel = [accel_gas[idx], sys_accel[ii]]
         tide_crit = check_tides_gen(tmp_pos, tmp_mass, tmp_accel, tmp_soft, 0, 1, GN)
 
-        if (sma > 0) and (tide_crit):
+        if (pe1 + ke1 < 0) and (tide_crit):
             halo_masses_bin[ii] += muniq[idx]
 
 halo_masses_sing = np.zeros(len(partpos))
@@ -195,5 +198,5 @@ for ii, row in enumerate(bin_ids_non_zero):
     idx2 = np.where(partids == row[1])[0][0]
     compare_masses_list.append((halo_masses_bin_non_zero[ii], halo_masses_sing[idx1], halo_masses_sing[idx2], bin_smas_non_zero[ii], idx1, idx2, bin_masses_non_zero[ii]))
 
-np.savetxt("compare_masses_list_{0}".format(sys.argv[1]), compare_masses_list)
+np.savetxt("compare2_masses_list_{0}".format(sys.argv[1]), compare_masses_list)
 
