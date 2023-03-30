@@ -70,9 +70,18 @@ def load_data(file, res_limit=0.0):
     del f
     return den, x, m, h, u, b, v, t, fmol, fneu, partpos, partmasses, partvels, partids, partsink, tcgs, unit_base
 
+def PE(xc, mc, hc, G=4.301e3):
+    """ xc - array of positions
+        mc - array of masses
+        hc - array of smoothing lengths
+        bc - array of magnetic field strengths
+    """
+    ## gravitational potential energy
+    phic = pytreegrav.Potential(xc, mc, hc, G=G, theta=0.7, method='bruteforce') # G in code units
+    return 0.5 * (phic*mc).sum()
 
 
-def get_orbit(p1, p2, v1, v2, m1, m2, G=4.301e3):
+def get_orbit(p1, p2, v1, v2, m1, m2, G=4.301e3, h1=0, h2=0):
     """
     Auxiliary function to get binary properties for two particles.
 
@@ -102,7 +111,8 @@ def get_orbit(p1, p2, v1, v2, m1, m2, G=4.301e3):
     ##Kinetic and potential energies
     ke = 0.5*m1*v12 + 0.5*m2*v22
     ##Potential energy ##TRY REPLACING WITH FUNCTIONALITY FROM PYTREEGRAV...
-    pe = G*m1*m2/dp
+    # pe = G*m1*m2/dp
+    pe = -PE(np.array([p2_com, p1_com]), np.array([m1, m2]), np.array([h1, h2]))
 
     a_bin = G*(m1*m2)/(2.*(pe-ke))
     ##Angular momentum in binary com
@@ -334,13 +344,14 @@ class cluster(object):
             pos = self.get_system_position[region]
             vel = self.get_system_vel[region]
             mass = self.get_system_mass[region]
+            soft = self.get_system_soft[region]
             idx = np.array(range(len(self.systems)))[region]
             orb_region = []
             combos_all = np.array(list(combinations(list(range(len(pos))), 2)))
             for jj, combo in enumerate(combos_all):
                 i = combo[0]
                 j = combo[1]
-                orb_region.append(np.concatenate((get_orbit(pos[i], pos[j], vel[i], vel[j], mass[i], mass[j], G=self.G),
+                orb_region.append(np.concatenate((get_orbit(pos[i], pos[j], vel[i], vel[j], mass[i], mass[j], G=self.G, h1=soft[0], h2=soft[1]),
                                                   [self.systems[idx[i]].ids[0], self.systems[idx[j]].ids[0], self.systems[idx[i]].sysID, self.systems[idx[j]].sysID])))
             self.orb_all.append(np.array(orb_region))
 
@@ -481,11 +492,12 @@ class cluster(object):
         vel = self.get_system_vel
         mass = self.get_system_mass
         ids = self.get_system_ids
+        soft = self.get_system_soft
 
         idx1 = np.where(sysIDs == ID_NEW)[0][0]
         for id_it in regionIDs:
             j = np.where(id_it == sysIDs)[0][0]
-            tmp = get_orbit(pos[idx1], pos[j], vel[idx1], vel[j], mass[idx1], mass[j], G=self.G)
+            tmp = get_orbit(pos[idx1], pos[j], vel[idx1], vel[j], mass[idx1], mass[j], G=self.G, h1=soft[idx1], h2=soft[j])
             tmp = np.concatenate((tmp, [ids[idx1][0], ids[j][0], ID_NEW, id_it]))
             self.orb_all[ii] = np.append(self.orb_all[ii], tmp)
             self.orb_all[ii].shape = (-1, 16)
