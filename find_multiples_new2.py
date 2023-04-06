@@ -366,7 +366,7 @@ class cluster(object):
         """
         Find the binary with the largest binding energy in a given subregion.
 
-        :param int ii: index of the subregion.
+        :----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------param int ii: index of the subregion.
         """
         orb_all = self.orb_all[ii]
         if len(orb_all) < 1:
