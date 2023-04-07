@@ -7,11 +7,11 @@ import find_multiples_new2
 from find_multiples_new2 import cluster, system
 import pytreegrav
 import progressbar
+import argparse
 
 GN = 4.301e3
 
-
-def PE(xc, mc, hc, G=4.301e3):
+def PE(xc, mc, hc, G=GN):
     """ xc - array of positions
         mc - array of masses
         hc - array of smoothing lengths
@@ -107,11 +107,18 @@ def check_tides_gen(pos, mass, accel, soft, idx1, idx2, G):
     tidal_crit = (np.linalg.norm(f_tides) < np.linalg.norm(f2body_i))
     return tidal_crit
 
-def get_gas_mass_bound(sys1, xuniq, muniq, huniq, accel_gas, G=GN, cutoff=0.1):
-    cumul_masses = np.copy(sys1.sub_mass)
-    cumul_pos = np.copy(sys1.sub_pos)
-    cumul_soft = np.copy(sys1.sub_soft)
-    cumul_vel = np.copy(sys1.sub_vel)
+##Add cumulative argument for non-pairwise algorithm!!!
+def get_gas_mass_bound(sys1, xuniq, muniq, huniq, accel_gas, G=GN, cutoff=0.1, non_pair=False):
+    if sys1.multiplicity > 1:
+        cumul_masses = np.copy(sys1.sub_mass)
+        cumul_pos = np.copy(sys1.sub_pos)
+        cumul_soft = np.copy(sys1.sub_soft)
+        cumul_vel = np.copy(sys1.sub_vel)
+    else:
+        cumul_masses = np.array([sys1.mass])
+        cumul_pos = np.copy([sys1.pos])
+        cumul_soft = np.array([sys1.soft])
+        cumul_vel = np.copy([sys1.vel])
     cumul_u = np.zeros(len(cumul_pos))
     cumul_accel = sys1.accel
     com_masses = sys1.mass
@@ -141,26 +148,34 @@ def get_gas_mass_bound(sys1, xuniq, muniq, huniq, accel_gas, G=GN, cutoff=0.1):
         tide_crit = check_tides_gen(tmp_pos, tmp_mass, tmp_accel, tmp_soft, 0, 1, G)
 
         if (pe1 + ke1 < 0) and (tide_crit):
-            cumul_accel = (np.sum(cumul_masses) * cumul_accel + muniq[idx] * accel_gas[idx]) / (
-                        muniq[idx] + np.sum(cumul_masses))
-            cumul_masses = np.append(cumul_masses, muniq[idx])
-            cumul_pos = np.vstack([cumul_pos, xuniq[idx]])
-            cumul_vel = np.vstack([cumul_vel, vuniq[idx]])
-            cumul_soft = np.append(cumul_soft, huniq[idx])
-            cumul_u = np.append(cumul_u, uuniq[idx])
-            com_masses = np.sum(cumul_masses)
-            com_pos = np.average(cumul_pos, weights=cumul_masses, axis=0)
-            com_vel = np.average(cumul_vel, weights=cumul_masses, axis=0)
+            if non_pair:
+                cumul_accel = (np.sum(cumul_masses) * cumul_accel + muniq[idx] * accel_gas[idx]) / (
+                            muniq[idx] + np.sum(cumul_masses))
+                cumul_masses = np.append(cumul_masses, muniq[idx])
+                cumul_pos = np.vstack([cumul_pos, xuniq[idx]])
+                cumul_vel = np.vstack([cumul_vel, vuniq[idx]])
+                cumul_soft = np.append(cumul_soft, huniq[idx])
+                cumul_u = np.append(cumul_u, uuniq[idx])
+                com_masses = np.sum(cumul_masses)
+                com_pos = np.average(cumul_pos, weights=cumul_masses, axis=0)
+                com_vel = np.average(cumul_vel, weights=cumul_masses, axis=0)
 
             halo_mass += muniq[idx]
 
     return halo_mass
 
 
+parser = argparse.ArgumentParser(description="Parse starforge snapshot, and get multiple data.")
+parser.add_argument("snap", help="Index of snapshot to read")
+parser.add_argument("--non_pair", action="store_true", help="Flag to turn on non-pairwise algorithm")
+parser.add_argument("--cutoff", type=float, default=0.1, help="Outer cutoff to look for bound gas (0.1 pc)")
 
+args = parser.parse_args()
 
-snap_idx = sys.argv[1]
-cutoff = 0.1
+snap_idx = args.snap
+cutoff = args.cutoff
+non_pair = args.non_pair
+
 with open("snapshot_{0}_TidesFalse_smaOrderFalse_mult2.p".format(snap_idx), "rb") as ff:
     cl = pickle.load(ff)
 
@@ -189,45 +204,25 @@ partpos = partpos.astype(np.float64)
 partmasses = partmasses.astype(np.float64)
 partsink = partsink.astype(np.float64)
 
-bin_smas = np.concatenate(np.array([ss.orbits[:, 0] for ss in cl.systems], dtype=object)[sys_mult == 2])
+# bin_smas = np.concatenate(np.array([ss.orbits[:, 0] for ss in cl.systems], dtype=object)[sys_mult == 2])
 
-halo_masses_bin = np.zeros(len(systems1))
-for ii, pp in enumerate(systems1):
-    if sys_mult[ii] != 2:
-        continue
-    halo_masses_bin[ii] = get_gas_mass_bound(systems1[ii], xuniq, muniq, huniq, accel_gas, G=GN, cutoff=cutoff)
+# halo_masses_bin = np.zeros(len(systems1))
+# ids1 = np.zeros(len(halo_masses_bin))
+# ids2 = np.zeros(len(halo_masses_bin))
+# for ii, pp in enumerate(systems1):
+#     if sys_mult[ii] != 2:
+#         continue
+#     halo_masses_bin[ii] = get_gas_mass_bound(systems1[ii], xuniq, muniq, huniq, accel_gas, G=GN, cutoff=cutoff,
+#     non_pair=non_pair)
+#     ids1[ii], ids2[ii] = systems1[ii].ids
+# #
+# np.savetxt("halo_masses_bin_{0}".format(snap_idx), np.transpose((halo_masses_bin, ids1, ids2)))
 
-#
 halo_masses_sing = np.zeros(len(partpos))
+ids_sing = np.zeros(len(partpos))
 for ii, pp in enumerate(partpos):
-    d = xuniq - partpos[ii]
-    d = np.sum(d*d, axis=1)
-    ord1 = np.argsort(d)
-    for idx in progressbar.progressbar(ord1):
-        if d[idx]**.5 > 0.1:
-            break
-        sma = get_sma_opt(partpos[ii].astype(np.float64), xuniq[idx].astype(np.float64),\
-                          partvels[ii].astype(np.float64), vuniq[idx].astype(np.float64),\
-                          partmasses[ii], muniq[idx], partsink[ii], huniq[idx], 0., uuniq[idx], GN)
-        tmp_pos = [xuniq[idx], partpos[ii]]
-        tmp_mass = [muniq[idx], partmasses[ii]]
-        tmp_soft = [huniq[idx], partsink[ii]]
-        tmp_accel = [accel_gas[idx], accel_stars[ii]]
-        tide_crit = check_tides_gen(tmp_pos, tmp_mass, tmp_accel, tmp_soft, 0, 1, GN)
-
-        if (sma > 0) and (tide_crit):
-            halo_masses_sing[ii] += muniq[idx]
-
-bin_ids_non_zero = sys_id[(sys_mult == 2) & (halo_masses_bin > 0)]
-bin_masses_non_zero = sys_masses[(sys_mult == 2) & (halo_masses_bin > 0)]
-halo_masses_bin_non_zero = halo_masses_bin[(sys_mult == 2) & (halo_masses_bin > 0)]
-bin_smas_non_zero = bin_smas[halo_masses_bin[sys_mult == 2] > 0]
-
-compare_masses_list = []
-for ii, row in enumerate(bin_ids_non_zero):
-    idx1 = np.where(partids == row[0])[0][0]
-    idx2 = np.where(partids == row[1])[0][0]
-    compare_masses_list.append((halo_masses_bin_non_zero[ii], halo_masses_sing[idx1], halo_masses_sing[idx2], bin_smas_non_zero[ii], idx1, idx2, bin_masses_non_zero[ii]))
-
-np.savetxt("compare4_masses_list_{0}".format(sys.argv[1]), compare_masses_list)
+    sys_tmp = find_multiples_new2.system(partpos[ii], partvels[ii], partmasses[ii], partsink[ii], partids[ii], accel_stars[ii], 0)
+    halo_masses_sing[ii] = get_gas_mass_bound(sys_tmp, xuniq, muniq, huniq, accel_gas, G=GN, cutoff=cutoff, non_pair=non_pair)
+    ids_sing[ii] = partids[ii]
+np.savetxt("halo_masses_sing_{0}".format(snap_idx), np.transpose((halo_masses_sing, ids_sing)))
 

@@ -199,6 +199,7 @@ class system(object):
     :param float m1: Particle mass
     :param float h1: Softening length
     :param Array-like id1: Particle ID(s) [Can store hierarchy!]
+    :param float accel: Particle acceleration
     :param int sysID: ID that can be used to tag a system
 
     """
