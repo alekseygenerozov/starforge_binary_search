@@ -134,9 +134,10 @@ def get_gas_mass_bound(sys1, xuniq, muniq, huniq, accel_gas, G=GN, cutoff=0.1, n
         if d[idx]**.5 > cutoff:
             break
 
-        pe1 = muniq[idx] * pytreegrav.Potential(np.vstack((cumul_pos, xuniq[idx])),\
-                     np.append(cumul_masses, muniq[idx]),\
-                     np.append(cumul_soft, huniq[idx]), G=G, theta=0.7, method='bruteforce')[-1]
+        pe1 = muniq[idx] * pytreegrav.Potential(np.vstack((cumul_pos, xuniq[idx])),
+                                                np.append(cumul_masses, muniq[idx]),
+                                                np.append(cumul_soft, huniq[idx]),
+                                                G=G, theta=0.7, method='bruteforce')[-1]
         ke1 = KE(np.vstack([com_pos, xuniq[idx]]), np.append(com_masses, muniq[idx]),
                  np.vstack([com_vel, vuniq[idx]]), np.append(0, uuniq[idx]))
         # ke1 = KE(np.vstack([sys1.pos, xuniq[idx]]), np.append(sys1.mass, muniq[idx]),
@@ -206,17 +207,18 @@ partsink = partsink.astype(np.float64)
 
 # bin_smas = np.concatenate(np.array([ss.orbits[:, 0] for ss in cl.systems], dtype=object)[sys_mult == 2])
 
-# halo_masses_bin = np.zeros(len(systems1))
-# ids1 = np.zeros(len(halo_masses_bin))
-# ids2 = np.zeros(len(halo_masses_bin))
-# for ii, pp in enumerate(systems1):
-#     if sys_mult[ii] != 2:
-#         continue
-#     halo_masses_bin[ii] = get_gas_mass_bound(systems1[ii], xuniq, muniq, huniq, accel_gas, G=GN, cutoff=cutoff,
-#     non_pair=non_pair)
-#     ids1[ii], ids2[ii] = systems1[ii].ids
-# #
-# np.savetxt("halo_masses_bin_{0}".format(snap_idx), np.transpose((halo_masses_bin, ids1, ids2)))
+halo_masses_bin = np.zeros(len(systems1))
+ids1 = np.zeros(len(halo_masses_bin))
+ids2 = np.zeros(len(halo_masses_bin))
+for ii, pp in enumerate(systems1):
+    if sys_mult[ii] != 2:
+        continue
+    halo_masses_bin[ii] = get_gas_mass_bound(systems1[ii], xuniq, muniq, huniq, accel_gas, G=GN, cutoff=cutoff,
+                                             non_pair=non_pair)
+    ids1[ii], ids2[ii] = systems1[ii].ids
+#
+np.savetxt("halo_masses_bin_{0}_np{1}_c{2}".format(snap_idx, non_pair, cutoff),
+           np.transpose((halo_masses_bin, ids1, ids2)))
 
 halo_masses_sing = np.zeros(len(partpos))
 ids_sing = np.zeros(len(partpos))
@@ -224,5 +226,6 @@ for ii, pp in enumerate(partpos):
     sys_tmp = find_multiples_new2.system(partpos[ii], partvels[ii], partmasses[ii], partsink[ii], partids[ii], accel_stars[ii], 0)
     halo_masses_sing[ii] = get_gas_mass_bound(sys_tmp, xuniq, muniq, huniq, accel_gas, G=GN, cutoff=cutoff, non_pair=non_pair)
     ids_sing[ii] = partids[ii]
-np.savetxt("halo_masses_sing_{0}".format(snap_idx), np.transpose((halo_masses_sing, ids_sing)))
+np.savetxt("halo_masses_sing_{0}_np{1}_c{2}".format(snap_idx, non_pair, cutoff),
+           np.transpose((halo_masses_sing, ids_sing)))
 
