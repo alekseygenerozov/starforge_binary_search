@@ -128,9 +128,11 @@ def get_gas_mass_bound(sys1, xuniq, muniq, huniq, accel_gas, G=GN, cutoff=0.1, n
     d = xuniq - com_pos
     d = np.sum(d * d, axis=1)
     ord1 = np.argsort(d)
+    d_max = 0
 
     halo_mass = 0.
     for idx in progressbar.progressbar(ord1):
+        d_max = d[idx]
         if d[idx]**.5 > cutoff:
             break
 
@@ -163,7 +165,7 @@ def get_gas_mass_bound(sys1, xuniq, muniq, huniq, accel_gas, G=GN, cutoff=0.1, n
 
             halo_mass += muniq[idx]
 
-    return halo_mass
+    return halo_mass, d_max
 
 
 parser = argparse.ArgumentParser(description="Parse starforge snapshot, and get multiple data.")
@@ -208,24 +210,27 @@ partsink = partsink.astype(np.float64)
 # bin_smas = np.concatenate(np.array([ss.orbits[:, 0] for ss in cl.systems], dtype=object)[sys_mult == 2])
 
 halo_masses_bin = np.zeros(len(systems1))
+max_dist_bin = np.zeros(len(systems1))
 ids1 = np.zeros(len(halo_masses_bin))
 ids2 = np.zeros(len(halo_masses_bin))
 for ii, pp in enumerate(systems1):
     if sys_mult[ii] != 2:
         continue
-    halo_masses_bin[ii] = get_gas_mass_bound(systems1[ii], xuniq, muniq, huniq, accel_gas, G=GN, cutoff=cutoff,
+    halo_masses_bin[ii], max_dist_bin[ii] = get_gas_mass_bound(systems1[ii], xuniq, muniq, huniq, accel_gas, G=GN, cutoff=cutoff,
                                              non_pair=non_pair)
     ids1[ii], ids2[ii] = systems1[ii].ids
 #
 np.savetxt("halo_masses_bin_{0}_np{1}_c{2}".format(snap_idx, non_pair, cutoff),
-           np.transpose((halo_masses_bin, ids1, ids2)))
+           np.transpose((halo_masses_bin, ids1, ids2, max_dist_bin)))
 
 halo_masses_sing = np.zeros(len(partpos))
+max_dist_sing = np.zeros(len(partpos))
 ids_sing = np.zeros(len(partpos))
 for ii, pp in enumerate(partpos):
     sys_tmp = find_multiples_new2.system(partpos[ii], partvels[ii], partmasses[ii], partsink[ii], partids[ii], accel_stars[ii], 0)
-    halo_masses_sing[ii] = get_gas_mass_bound(sys_tmp, xuniq, muniq, huniq, accel_gas, G=GN, cutoff=cutoff, non_pair=non_pair)
+    halo_masses_sing[ii], max_dist_sing[ii] = get_gas_mass_bound(sys_tmp, xuniq, muniq, huniq, accel_gas, G=GN, cutoff=cutoff, non_pair=non_pair)
     ids_sing[ii] = partids[ii]
+
 np.savetxt("halo_masses_sing_{0}_np{1}_c{2}".format(snap_idx, non_pair, cutoff),
-           np.transpose((halo_masses_sing, ids_sing)))
+           np.transpose((halo_masses_sing, ids_sing, max_dist_sing)))
 
