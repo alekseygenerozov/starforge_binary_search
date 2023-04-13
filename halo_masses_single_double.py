@@ -132,7 +132,6 @@ def get_gas_mass_bound(sys1, xuniq, muniq, huniq, accel_gas, G=GN, cutoff=0.1, n
 
     halo_mass = 0.
     for idx in progressbar.progressbar(ord1):
-        d_max = d[idx]
         if d[idx]**.5 > cutoff:
             break
 
@@ -152,6 +151,7 @@ def get_gas_mass_bound(sys1, xuniq, muniq, huniq, accel_gas, G=GN, cutoff=0.1, n
 
         if (pe1 + ke1 < 0) and (tide_crit):
             if non_pair:
+
                 cumul_accel = (np.sum(cumul_masses) * cumul_accel + muniq[idx] * accel_gas[idx]) / (
                             muniq[idx] + np.sum(cumul_masses))
                 cumul_masses = np.append(cumul_masses, muniq[idx])
@@ -163,6 +163,7 @@ def get_gas_mass_bound(sys1, xuniq, muniq, huniq, accel_gas, G=GN, cutoff=0.1, n
                 com_pos = np.average(cumul_pos, weights=cumul_masses, axis=0)
                 com_vel = np.average(cumul_vel, weights=cumul_masses, axis=0)
 
+            d_max = d[idx]**.5
             halo_mass += muniq[idx]
 
     return halo_mass, d_max
