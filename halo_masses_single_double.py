@@ -210,19 +210,19 @@ partsink = partsink.astype(np.float64)
 
 # bin_smas = np.concatenate(np.array([ss.orbits[:, 0] for ss in cl.systems], dtype=object)[sys_mult == 2])
 
-halo_masses_bin = np.zeros(len(systems1))
-max_dist_bin = np.zeros(len(systems1))
-ids1 = np.zeros(len(halo_masses_bin))
-ids2 = np.zeros(len(halo_masses_bin))
-for ii, pp in enumerate(systems1):
-    if sys_mult[ii] != 2:
-        continue
-    halo_masses_bin[ii], max_dist_bin[ii] = get_gas_mass_bound(systems1[ii], xuniq, muniq, huniq, accel_gas, G=GN, cutoff=cutoff,
-                                             non_pair=non_pair)
-    ids1[ii], ids2[ii] = systems1[ii].ids
-#
-np.savetxt("halo_masses_bin_{0}_np{1}_c{2}".format(snap_idx, non_pair, cutoff),
-           np.transpose((halo_masses_bin, ids1, ids2, max_dist_bin)))
+# halo_masses_bin = np.zeros(len(systems1))
+# max_dist_bin = np.zeros(len(systems1))
+# ids1 = np.zeros(len(halo_masses_bin))
+# ids2 = np.zeros(len(halo_masses_bin))
+# for ii, pp in enumerate(systems1):
+#     if sys_mult[ii] != 2:
+#         continue
+#     halo_masses_bin[ii], max_dist_bin[ii] = get_gas_mass_bound(systems1[ii], xuniq, muniq, huniq, accel_gas, G=GN, cutoff=cutoff,
+#                                              non_pair=non_pair)
+#     ids1[ii], ids2[ii] = systems1[ii].ids
+# #
+# np.savetxt("halo_masses_bin_{0}_np{1}_c{2}".format(snap_idx, non_pair, cutoff),
+#            np.transpose((halo_masses_bin, ids1, ids2, max_dist_bin)))
 
 halo_masses_sing = np.zeros(len(partpos))
 max_dist_sing = np.zeros(len(partpos))
