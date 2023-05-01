@@ -510,6 +510,8 @@ def main():
     parser.add_argument("--sma_order", action="store_true", help="Assemble hierarchy by sma instead of binding energy")
     parser.add_argument("--halo_mass_file", default="", help="Name of file containing gas halo mass around sink particles")
     parser.add_argument("--mult_max", type=int, default=4, help="Multiplicity cut (4).")
+    parser.add_argument("--ngrid", type=int, default=1, help="Number of subgrids to use. Higher number will be faster,"
+                                                             " but less accurate (1)")
     args = parser.parse_args()
 
     snapshot_file = args.snap
@@ -536,13 +538,13 @@ def main():
     accel_stars = pytreegrav.Accel(partpos, partmasses, partsink, method='bruteforce', G=4.301e3)
     #
     cl = cluster(partpos, partvels, partmasses, partsink, partids, accel_stars + accel_gas,
-                 sma_order=sma_order, mult_max=args.mult_max)
-    with open(snapshot_file.replace(".hdf5", "")+"_TidesTrue"+"_smaOrder{0}_mult{1}".format(sma_order, args.mult_max)+".p", "wb") as ff:
+                 sma_order=sma_order, mult_max=args.mult_max, Ngrid1D=args.ngrid)
+    with open(snapshot_file.replace(".hdf5", "")+"_TidesTrue"+"_smaOrder{0}_mult{1}_ngrid{2}".format(sma_order, args.mult_max, args.ngrid)+".p", "wb") as ff:
         pickle.dump(cl, ff)
 
     cl = cluster(partpos, partvels, partmasses, partsink, partids, accel_stars + accel_gas, tides=False,
-                 sma_order=sma_order, mult_max=args.mult_max)
-    with open(snapshot_file.replace(".hdf5", "")+"_TidesFalse"+"_smaOrder{0}_mult{1}".format(sma_order, args.mult_max)+".p", "wb") as ff:
+                 sma_order=sma_order, mult_max=args.mult_max, Ngrid1D=args.ngrid)
+    with open(snapshot_file.replace(".hdf5", "")+"_TidesFalse"+"_smaOrder{0}_mult{1}_ngrid{2}".format(sma_order, args.mult_max, args.ngrid)+".p", "wb") as ff:
         pickle.dump(cl, ff)
 
 
