@@ -107,134 +107,80 @@ def check_tides_gen(pos, mass, accel, soft, idx1, idx2, G):
     tidal_crit = (np.linalg.norm(f_tides) < np.linalg.norm(f2body_i))
     return tidal_crit
 
-def get_com(p1, v1, a1, m1):
-    mtot = np.sum(m1)
-    com_p1 = np.sum([m1[ii] * np.array(p1[ii]) for ii in range(len(p1))], axis=0)/mtot
-    com_v1 = np.sum([m1[ii] * np.array(v1[ii]) for ii in range(len(v1))], axis=0)/mtot
-    com_a1 = np.sum([m1[ii] * np.array(a1[ii]) for ii in range(len(a1))], axis=0)/mtot
-
-
-    return com_p1, com_v1, com_a1, np.sum(m1)
-
 ##Add cumulative argument for non-pairwise algorithm!!!
 def get_gas_mass_bound(sys1, xuniq, muniq, huniq, accel_gas, G=GN, cutoff=0.1, non_pair=False):
-    # if sys1.multiplicity > 1:
-    #     cumul_masses = np.copy(sys1.sub_mass)
-    #     cumul_pos = np.copy(sys1.sub_pos)
-    #     cumul_soft = np.copy(sys1.sub_soft)
-    #     cumul_vel = np.copy(sys1.sub_vel)
-    # else:
-    #     cumul_masses = np.array([sys1.mass])
-    #     cumul_pos = np.copy([sys1.pos])
-    #     cumul_soft = np.array([sys1.soft])
-    #     cumul_vel = np.copy([sys1.vel])
-    # cumul_u = np.zeros(len(cumul_pos))
-    # cumul_accel = sys1.accel
-    # com_masses = sys1.mass
+    if sys1.multiplicity > 1:
+        cumul_masses = np.copy(sys1.sub_mass)
+        cumul_pos = np.copy(sys1.sub_pos)
+        cumul_soft = np.copy(sys1.sub_soft)
+        cumul_vel = np.copy(sys1.sub_vel)
+    else:
+        cumul_masses = np.array([sys1.mass])
+        cumul_pos = np.copy([sys1.pos])
+        cumul_soft = np.array([sys1.soft])
+        cumul_vel = np.copy([sys1.vel])
+    cumul_u = np.zeros(len(cumul_pos))
+    cumul_accel = sys1.accel
+    com_masses = sys1.mass
     com_pos = sys1.pos
-    mc = sys1.mass
+    com_vel = sys1.vel
+    # vuniq_mag = np.sum((vuniq - sys1.vel) * (vuniq - sys1.vel), axis=1) ** .5
 
     d = xuniq - com_pos
-    d = np.sum(d * d, axis=1)**.5
+    d = np.sum(d * d, axis=1)
     ord1 = np.argsort(d)
-    d_sorted = d[ord1]
-    xuniq_sorted = xuniq[ord1]
-    vuniq_sorted = vuniq[ord1]
-    muniq_sorted = muniq[ord1]
-    huniq_sorted = huniq[ord1]
-    uuniq_sorted = uuniq[ord1]
-    accel_gas_sorted = accel_gas[ord1]
-    ##Simple velocity filter -- to improve (!)
-    # vscale = (G * cgs.M_sun / cgs.pc)**.5
-    ##Conversion of velocity in code units to cgs
-    kms = 100 / 1e5
-    vuniq_sorted_mag = np.sum((vuniq_sorted - sys1.vel) * (vuniq_sorted - sys1.vel), axis=1)**.5
-    filt = vuniq_sorted_mag < (2. * G * (sys1.mass + muniq_sorted) / d_sorted)**.5
-    d_sorted = d_sorted[filt]
-    xuniq_sorted = xuniq_sorted[filt]
-    vuniq_sorted = vuniq_sorted[filt]
-    muniq_sorted = muniq_sorted[filt]
-    huniq_sorted = huniq_sorted[filt]
-    uuniq_sorted = uuniq_sorted[filt]
-    accel_gas_sorted = accel_gas_sorted[filt]
+    # d_sorted = d[ord1]**.5
+    d_max = 0
 
-    # halo_mass = 0.
-    # conv1 = False
-    lower_bound = 0.
-    upper_bound = cutoff
-
-    while 1 == 1:
-        test_d = 0.5 * (lower_bound + upper_bound)
-        try:
-            final_idx = np.where(d_sorted <= test_d)[0][-1] + 1
-        except IndexError:
+    halo_mass = 0.
+    for idx in progressbar.progressbar(ord1):
+        if d[idx]**.5 > cutoff:
             break
-        # final_idx = 10
-        pe1 = pytreegrav.Potential(np.vstack((sys1.pos, xuniq_sorted[:final_idx])),
-                                   np.concatenate(([sys1.mass], muniq_sorted[:final_idx])),
-                                   np.concatenate(([sys1.soft], huniq_sorted[:final_idx])), G=G,
-                                   theta=0.7, method='bruteforce')[-1]
-        com_pos, com_vel, com_a, com_masses = get_com(xuniq_sorted[:final_idx-1], vuniq_sorted[:final_idx-1],
-                                                      accel_gas_sorted[:final_idx-1], muniq_sorted[:final_idx-1])
-        com_pos, com_vel, com_a, com_masses = get_com([sys1.pos, com_pos], [sys1.vel, com_vel],
-                                                      [sys1.accel, com_a], [sys1.mass, com_masses])
+        ##Likely unnecessary since no change in results/performance.
+        if denuniq[idx] < 0.247:
+            continue
+        ##Use velocity relative to the cumulative center-of-mass
+        tmp_vrel = np.linalg.norm(vuniq[idx] - com_vel)
+        if tmp_vrel > (2. * G * np.sum(cumul_masses) / d[idx]**.5)**.5:
+            continue
 
-        ke1 = KE(np.vstack([com_pos, xuniq_sorted[final_idx-1]]), np.append(com_masses, muniq_sorted[final_idx-1]),
-                 np.vstack([com_vel, vuniq_sorted[final_idx-1]]), np.append(0, uuniq_sorted[final_idx-1]))
-        tmp_pos = [xuniq_sorted[final_idx-1], np.vstack((sys1.pos, xuniq_sorted[:final_idx-1]))]
-        tmp_mass = [muniq_sorted[final_idx-1], np.concatenate(([sys1.mass], muniq_sorted[:final_idx-1]))]
-        tmp_accel = [accel_gas_sorted[final_idx-1], com_a]
-        tmp_soft = [huniq_sorted[final_idx-1], np.concatenate(([sys1.soft], huniq_sorted[:final_idx-1]))]
+        ##Maybe can also replace with PotentialTarget?! Gives a lot of extra information...
+        # pe1 = muniq[idx] * pytreegrav.Potential(np.vstack((cumul_pos, xuniq[idx])),
+        #                                         np.append(cumul_masses, muniq[idx]),
+        #                                         np.append(cumul_soft, huniq[idx]),
+        #                                         G=G, theta=0.7, method='bruteforce')[-1]
 
+        pe1 = muniq[idx] * pytreegrav.PotentialTarget(np.atleast_2d(xuniq[idx]), cumul_pos, cumul_masses,
+                                                softening_target=np.atleast_1d(huniq[idx]), softening_source=cumul_soft,
+                                                G=G, theta=0.7, method='bruteforce')[-1]
+        ke1 = KE(np.vstack([com_pos, xuniq[idx]]), np.append(com_masses, muniq[idx]),
+                 np.vstack([com_vel, vuniq[idx]]), np.append(0, uuniq[idx]))
+        # ke1 = KE(np.vstack([sys1.pos, xuniq[idx]]), np.append(sys1.mass, muniq[idx]),
+        #          np.vstack([sys1.vel, vuniq[idx]]), np.append(0, uuniq[idx]))
+        tmp_pos = [xuniq[idx], cumul_pos]
+        tmp_mass = [muniq[idx], cumul_masses]
+        tmp_soft = [huniq[idx], cumul_soft]
+        tmp_accel = [accel_gas[idx], cumul_accel]
         tide_crit = check_tides_gen(tmp_pos, tmp_mass, tmp_accel, tmp_soft, 0, 1, G)
+
         if (pe1 + ke1 < 0) and (tide_crit):
-            lower_bound = test_d
-            ##Condition for convergence...Probably will require experimentation
-            if np.abs(upper_bound - lower_bound) / lower_bound < 0.05:
-                break
-        else:
-            upper_bound = test_d
+            if non_pair:
 
-    test_d = 0.5 * (lower_bound + upper_bound)
-    final_idx = np.where(d <= test_d)[0][-1] + 1
-    return np.sum(muniq_sorted[:final_idx]), test_d
+                cumul_accel = (np.sum(cumul_masses) * cumul_accel + muniq[idx] * accel_gas[idx]) / (
+                            muniq[idx] + np.sum(cumul_masses))
+                cumul_masses = np.append(cumul_masses, muniq[idx])
+                cumul_pos = np.vstack([cumul_pos, xuniq[idx]])
+                cumul_vel = np.vstack([cumul_vel, vuniq[idx]])
+                cumul_soft = np.append(cumul_soft, huniq[idx])
+                cumul_u = np.append(cumul_u, uuniq[idx])
+                com_masses = np.sum(cumul_masses)
+                com_pos = np.average(cumul_pos, weights=cumul_masses, axis=0)
+                com_vel = np.average(cumul_vel, weights=cumul_masses, axis=0)
 
-    # for idx in progressbar.progressbar(ord1):
-    #     if d[idx]**.5 > cutoff:
-    #         break
-    #
-    #     pe1 = muniq[idx] * pytreegrav.Potential(np.vstack((cumul_pos, xuniq[idx])),
-    #                                             np.append(cumul_masses, muniq[idx]),
-    #                                             np.append(cumul_soft, huniq[idx]),
-    #                                             G=G, theta=0.7, method='bruteforce')[-1]
-    #     ke1 = KE(np.vstack([com_pos, xuniq[idx]]), np.append(com_masses, muniq[idx]),
-    #              np.vstack([com_vel, vuniq[idx]]), np.append(0, uuniq[idx]))
-    #     # ke1 = KE(np.vstack([sys1.pos, xuniq[idx]]), np.append(sys1.mass, muniq[idx]),
-    #     #          np.vstack([sys1.vel, vuniq[idx]]), np.append(0, uuniq[idx]))
-    #     tmp_pos = [xuniq[idx], cumul_pos]
-    #     tmp_mass = [muniq[idx], cumul_masses]
-    #     tmp_soft = [huniq[idx], cumul_soft]
-    #     tmp_accel = [accel_gas[idx], cumul_accel]
-    #     tide_crit = check_tides_gen(tmp_pos, tmp_mass, tmp_accel, tmp_soft, 0, 1, G)
-    #
-    #     if (pe1 + ke1 < 0) and (tide_crit):
-    #         if non_pair:
-    #
-    #             cumul_accel = (np.sum(cumul_masses) * cumul_accel + muniq[idx] * accel_gas[idx]) / (
-    #                         muniq[idx] + np.sum(cumul_masses))
-    #             cumul_masses = np.append(cumul_masses, muniq[idx])
-    #             cumul_pos = np.vstack([cumul_pos, xuniq[idx]])
-    #             cumul_vel = np.vstack([cumul_vel, vuniq[idx]])
-    #             cumul_soft = np.append(cumul_soft, huniq[idx])
-    #             cumul_u = np.append(cumul_u, uuniq[idx])
-    #             com_masses = np.sum(cumul_masses)
-    #             com_pos = np.average(cumul_pos, weights=cumul_masses, axis=0)
-    #             com_vel = np.average(cumul_vel, weights=cumul_masses, axis=0)
-    #
-    #         d_max = d[idx]**.5
-    #         halo_mass += muniq[idx]
+            d_max = d[idx]**.5
+            halo_mass += muniq[idx]
 
-    # return halo_mass, d_max
+    return halo_mass, d_max
 
 
 parser = argparse.ArgumentParser(description="Parse starforge snapshot, and get multiple data.")
@@ -267,11 +213,13 @@ muniq = m[indx]
 huniq = h[indx]
 vuniq = v[indx]
 uuniq = u[indx]
+denuniq = den[indx]
 vuniq = vuniq.astype(np.float64)
 xuniq = xuniq.astype(np.float64)
 muniq = muniq.astype(np.float64)
 huniq = huniq.astype(np.float64)
 uuniq = uuniq.astype(np.float64)
+denuniq = denuniq.astype(np.float64)
 partpos = partpos.astype(np.float64)
 partmasses = partmasses.astype(np.float64)
 partsink = partsink.astype(np.float64)
@@ -296,11 +244,10 @@ halo_masses_sing = np.zeros(len(partpos))
 max_dist_sing = np.zeros(len(partpos))
 ids_sing = np.zeros(len(partpos))
 for ii, pp in enumerate(partpos):
-    print(ii)
     sys_tmp = find_multiples_new2.system(partpos[ii], partvels[ii], partmasses[ii], partsink[ii], partids[ii], accel_stars[ii], 0)
     halo_masses_sing[ii], max_dist_sing[ii] = get_gas_mass_bound(sys_tmp, xuniq, muniq, huniq, accel_gas, G=GN, cutoff=cutoff, non_pair=non_pair)
     ids_sing[ii] = partids[ii]
 
-np.savetxt("halo_masses_sing_{0}_np{1}_c{2}".format(snap_idx, non_pair, cutoff),
+np.savetxt("tmp_halo_masses_sing_{0}_np{1}_c{2}".format(snap_idx, non_pair, cutoff),
            np.transpose((halo_masses_sing, ids_sing, max_dist_sing)))
 
