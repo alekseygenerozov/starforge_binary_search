@@ -159,7 +159,31 @@ def select_in_subregion(x, Ngrid1D=1):
         regions.append((x[:, 0] >= xlim) & (x[:, 0] <= (xlim+dx)) & (x[:, 1] >= ylim) & (x[:, 1] <= (ylim+dy)) & (x[:, 2] >= zlim) & (x[:, 2] <= (zlim+dz)))
     return regions
 
-def check_tides(pos, mass, accel, soft, idx1, idx2, G):
+# def check_tides(pos, mass, accel, soft, idx1, idx2, G):
+#     """
+#     Check whether tidal force is greater than two-body force between two stars.
+#
+#     :param Array-like mass: Particle positions
+#     :param Array-like pos: Particle positions
+#     :param Array-like accel: Particle accelerations
+#     :param Array-like soft: Softening length
+#     :param int idx1: First particle index
+#     :param int idx2: Second particle index
+#
+#     :return: Boolean indicating whether tidal force exceed the internal two-body force.
+#     :rtype: bool
+#
+#     """
+#     f2body_i = mass[idx1] * pytreegrav.AccelTarget(np.atleast_2d(pos[idx1]), np.atleast_2d(pos[idx2]),
+#                                                    np.atleast_1d(mass[idx2]), softening_target=np.atleast_1d(soft[idx1]),
+#                                                    softening_source=np.atleast_1d(soft[idx2]), G=G)
+#     com_accel = (mass[idx1] * accel[idx1] + mass[idx2] * accel[idx2]) / (mass[idx1] + mass[idx2])
+#     f_tides = mass[idx1] * (accel[idx1] - com_accel) - f2body_i
+#
+#     tidal_crit = (np.linalg.norm(f_tides) < 2. * np.linalg.norm(f2body_i))
+#     return tidal_crit
+
+def check_tides_sys(sys1, sys2, G):
     """
     Check whether tidal force is greater than two-body force between two stars.
 
@@ -174,14 +198,42 @@ def check_tides(pos, mass, accel, soft, idx1, idx2, G):
     :rtype: bool
 
     """
-    f2body_i = mass[idx1] * pytreegrav.AccelTarget(np.atleast_2d(pos[idx1]), np.atleast_2d(pos[idx2]),
-                                                   np.atleast_1d(mass[idx2]), softening_target=np.atleast_1d(soft[idx1]),
-                                                   softening_source=np.atleast_1d(soft[idx2]), G=G)
-    com_accel = (mass[idx1] * accel[idx1] + mass[idx2] * accel[idx2]) / (mass[idx1] + mass[idx2])
-    f_tides = mass[idx1] * (accel[idx1] - com_accel) - f2body_i
+    ##Can we avoid these two separate cases?? Dont want to handle single multiplicty stars as a special case.
+    ##In any case we still have to modify how we store sub positions.
+    sys1_pos = sys1.sub_pos
+    sys1_mass = sys1.sub_mass
+    sys1_soft = sys1.sub_soft
+    ##System 2...
+    sys2_pos = sys2.sub_pos
+    sys2_mass = sys2.sub_mass
+    sys2_soft = sys2.sub_soft
+    ##Acceleration of system 1 particles due to system 2 particles
+    a_internal = pytreegrav.AccelTarget(np.atleast_2d(sys1_pos), np.atleast_2d(sys2_pos),
+                                                   np.atleast_1d(sys2_mass), softening_target=np.atleast_1d(sys1_soft),
+                                                   softening_source=np.atleast_1d(sys2_soft), G=G)
+    ##Acceleration of com of system 1 due to system 2.
+    a_internal_com = np.dot(sys1_mass, a_internal) / sys1.mass
+    ##Acceleration of com of whole system
+    com_accel = (sys1.mass * sys1.accel + sys2.mass * sys2.accel) / (sys1.mass + sys2.mass)
+    ##Difference acceleration of system and com acceleration of com ##How do we want to order the subtraction?
+    a_tides = (sys1.accel - com_accel) - a_internal_com
+    ##Tidal criterion
+    tidal_crit = (np.linalg.norm(a_tides) < 2. * np.linalg.norm(a_internal_com))
+    ##Check if tides are actually destructive
+    compress = np.dot(a_tides, sys2.pos - sys1.pos)
 
-    tidal_crit = (np.linalg.norm(f_tides) < np.linalg.norm(f2body_i))
-    return tidal_crit
+    return (tidal_crit or compress), a_tides
+
+    # sys2_pos = sys2.sub_pos
+    # sys2_mass = sys2.sub_mass
+    # f2body_i = mass[idx1] * pytreegrav.AccelTarget(np.atleast_2d(pos[idx1]), np.atleast_2d(pos[idx2]),
+    #                                                np.atleast_1d(mass[idx2]), softening_target=np.atleast_1d(soft[idx1]),
+    #                                                softening_source=np.atleast_1d(soft[idx2]), G=G)
+    # com_accel = (mass[idx1] * accel[idx1] + mass[idx2] * accel[idx2]) / (mass[idx1] + mass[idx2])
+    # f_tides = mass[idx1] * (accel[idx1] - com_accel) - f2body_i
+    #
+    # tidal_crit = (np.linalg.norm(f_tides) < 2. * np.linalg.norm(f2body_i))
+    # return tidal_crit
 
 def flatten_ids(id):
     """
@@ -203,7 +255,7 @@ class system(object):
     :param int sysID: ID that can be used to tag a system
 
     """
-    def __init__(self, p1, v1, m1, h1, id1, accel, sysID):
+    def __init__(self, p1, v1, m1, h1, id1, accel, sysID, pos_to_spos=False):
         self.pos = np.copy(p1)
         self.vel = np.copy(v1)
         self.mass = m1
@@ -213,11 +265,21 @@ class system(object):
         self.orbits = np.zeros((0, 16))
         self.sub_pos = np.zeros((0, 3))
         self.sub_vel = np.zeros((0, 3))
+        self.sub_accel = np.zeros((0, 3))
         self.sub_mass = np.zeros(0)
         self.sub_soft = np.zeros(0)
+        if pos_to_spos:
+            self.sub_pos = np.atleast_1d(self.pos)
+            self.sub_vel = np.atleast_2d(self.vel)
+            self.sub_mass = np.atleast_1d(self.mass)
+            self.sub_soft = np.copy(self.soft)
+            self.sub_accel = np.copy(self.accel)
         self.sysID = sysID
         self.hierarchy = id1
         self.ids = flatten_ids(id1)
+
+        ##To store tidal accelerations
+        self.a_tides = []
 
     @property
     def multiplicity(self):
@@ -243,6 +305,13 @@ class system(object):
         Add velocity of system subcomponent
         """
         self.sub_vel = np.concatenate((self.sub_vel, vel))
+
+    def add_sub_accel(self, accel):
+        """
+        Add velocity of system subcomponent
+        """
+        self.sub_accel = np.concatenate((self.sub_accel, accel))
+
 
     def add_sub_mass(self, mass):
         """
@@ -278,7 +347,7 @@ class cluster(object):
         self.systems = []
         ##Adding each star as a system
         for ii in range(len(ps)):
-            self.systems.append(system(ps[ii], vs[ii], ms[ii], partsink[ii], ids[ii], accels[ii], ii))
+            self.systems.append(system(ps[ii], vs[ii], ms[ii], partsink[ii], ids[ii], accels[ii], ii, pos_to_spos=True))
         self.systems = np.array(self.systems)
         self.tides = tides
         ##Partition stars into different subregions -- copied from one of existing binary-finding codes.
@@ -394,7 +463,11 @@ class cluster(object):
 
             mult_total = self.systems[idx1].multiplicity + self.systems[idx2].multiplicity
             ###Tidal criterion:
-            tidal_crit = check_tides(pos, mass, accel, soft, idx1, idx2, self.G)
+            # tidal_crit = check_tides(pos, mass, accel, soft, idx1, idx2, self.G)
+            tidal_crit_1, at1 = check_tides_sys(self.systems[idx1], self.systems[idx2], self.G)
+            tidal_crit_2, at2 = check_tides_sys(self.systems[idx2], self.systems[idx1], self.G)
+            tidal_crit = tidal_crit_1 and tidal_crit_2
+            ##Symmetrize tidal criterion? (e.g. Call again with arguments flipped)
             tidal_crit = (tidal_crit) or (not self.tides)
             ##Check that binary is bound, multiplicity is less than four, and that the binary is tidally stable. Tides can be turned off by setting self.tides to False.
             if row[0] > 0 and (mult_total <= self.mult_max) and tidal_crit:
@@ -403,6 +476,9 @@ class cluster(object):
                 ##Put add operation first to deal with special case of only three stars
                 self._orbit_adjust_add(ii, ID_NEW)
                 self._orbit_adjust_delete(ii, ID1, ID2)
+                ##Store tidal acceleration (proper setter)
+                self.systems[-1].at.append(at1)
+                self.systems[-1].at.append(at2)
 
                 return
 
@@ -441,23 +517,26 @@ class cluster(object):
 
         ss_new.add_sub_pos(self.systems[idx1].sub_pos)
         ss_new.add_sub_pos(self.systems[idx2].sub_pos)
-        ss_new.add_sub_pos([self.systems[idx1].pos])
-        ss_new.add_sub_pos([self.systems[idx2].pos])
+        # ss_new.add_sub_pos([self.systems[idx1].pos])
+        # ss_new.add_sub_pos([self.systems[idx2].pos])
 
         ss_new.add_sub_vel(self.systems[idx1].sub_vel)
         ss_new.add_sub_vel(self.systems[idx2].sub_vel)
-        ss_new.add_sub_vel([self.systems[idx1].vel])
-        ss_new.add_sub_vel([self.systems[idx2].vel])
+        # ss_new.add_sub_vel([self.systems[idx1].vel])
+        # ss_new.add_sub_vel([self.systems[idx2].vel])
+
+        ss_new.add_sub_accel(self.systems[idx1].sub_accel)
+        ss_new.add_sub_accel(self.systems[idx2].sub_accel)
 
         ss_new.add_sub_soft(self.systems[idx1].sub_soft)
         ss_new.add_sub_soft(self.systems[idx2].sub_soft)
-        ss_new.add_sub_soft([self.systems[idx1].soft])
-        ss_new.add_sub_soft([self.systems[idx2].soft])
+        # ss_new.add_sub_soft([self.systems[idx1].soft])
+        # ss_new.add_sub_soft([self.systems[idx2].soft])
 
         ss_new.add_sub_mass(self.systems[idx1].sub_mass)
         ss_new.add_sub_mass(self.systems[idx2].sub_mass)
-        ss_new.add_sub_mass([self.systems[idx1].mass])
-        ss_new.add_sub_mass([self.systems[idx2].mass])
+        # ss_new.add_sub_mass([self.systems[idx1].mass])
+        # ss_new.add_sub_mass([self.systems[idx2].mass])
 
         systems_new = np.concatenate((systems_new, [ss_new]))
 
