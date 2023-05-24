@@ -145,10 +145,10 @@ def get_gas_mass_bound(sys1, xuniq, muniq, huniq, accel_gas, G=GN, cutoff=0.1, n
             continue
 
         ##Maybe can also replace with PotentialTarget?! Gives a lot of extra information...
-        # pe1 = muniq[idx] * pytreegrav.Potential(np.vstack((cumul_pos, xuniq[idx])),
-        #                                         np.append(cumul_masses, muniq[idx]),
-        #                                         np.append(cumul_soft, huniq[idx]),
-        #                                         G=G, theta=0.7, method='bruteforce')[-1]
+        pe0 = muniq[idx] * pytreegrav.Potential(np.vstack((cumul_pos, xuniq[idx])),
+                                                np.append(cumul_masses, muniq[idx]),
+                                                softening=np.append(cumul_soft, huniq[idx]),
+                                                G=G, theta=0.7, method='bruteforce')
 
         pe1 = muniq[idx] * pytreegrav.PotentialTarget(np.atleast_2d(xuniq[idx]), cumul_pos, cumul_masses,
                                                 softening_target=np.atleast_1d(huniq[idx]), softening_source=cumul_soft,
