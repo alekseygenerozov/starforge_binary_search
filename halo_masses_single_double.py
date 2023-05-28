@@ -124,12 +124,13 @@ def add_to_blob(blob, gas_data, idx):
 
     return blob
 
-def get_gas_mass_bound_refactor(sys1, gas_data, G=GN, cutoff=0.1, non_pair=False, compress=False, tides_factor=1):
+def get_gas_mass_bound_refactor(sys1, gas_data, sinkpos, G=GN, cutoff=0.1, non_pair=False, compress=False, tides_factor=1):
     """
     Get to gas mass bound to a system. This is meant to be applied to a *single star.*
 
     :param System sys1: System we are interested
     :param tuple gas_data: All the positions, velocities, masses, softening lengths, and accelerations of all gas
+    :param Array-like sinkpos: Position of all sinks
     :param float G: Gravitational constant
     :param float cutoff: Distance up to which we look for bound gas
     :param bool non_pair: Flag to include non-pairwise interactions.
@@ -147,6 +148,11 @@ def get_gas_mass_bound_refactor(sys1, gas_data, G=GN, cutoff=0.1, non_pair=False
     for idx in progressbar.progressbar(ord1):
         if d[idx] > cutoff:
             break
+        dall = (xuniq1[idx] - sinkpos)
+        dall = np.sum(dall * dall, axis=1)**.5
+        if not np.isclose(np.min(dall), d[idx]):
+            continue
+
         ##Use velocity relative to the cumulative center-of-mass
         tmp_vrel = np.linalg.norm(vuniq1[idx] - blob['com_vel'])
         ##Performance but unexpected decreases bound gas
@@ -180,79 +186,79 @@ def get_gas_mass_bound_refactor(sys1, gas_data, G=GN, cutoff=0.1, non_pair=False
     return halo_mass, d_max, bound_index
 
 #Add cumulative argument for non-pairwise algorithm!!! Add vuniq to arguments as well
-def get_gas_mass_bound_og(sys1, xuniq, muniq, huniq, accel_gas, G=GN, cutoff=0.1, non_pair=False):
-    if sys1.multiplicity > 1:
-        cumul_masses = np.copy(sys1.sub_mass)
-        cumul_pos = np.copy(sys1.sub_pos)
-        cumul_soft = np.copy(sys1.sub_soft)
-        cumul_vel = np.copy(sys1.sub_vel)
-    else:
-        cumul_masses = np.array([sys1.mass])
-        cumul_pos = np.copy([sys1.pos])
-        cumul_soft = np.array([sys1.soft])
-        cumul_vel = np.copy([sys1.vel])
-    cumul_u = np.zeros(len(cumul_pos))
-    cumul_accel = sys1.accel
-    com_masses = sys1.mass
-    com_pos = sys1.pos
-    com_vel = sys1.vel
-    # vuniq_mag = np.sum((vuniq - sys1.vel) * (vuniq - sys1.vel), axis=1) ** .5
-
-    d = xuniq - com_pos
-    d = np.sum(d * d, axis=1)
-    ord1 = np.argsort(d)
-    # d_sorted = d[ord1]**.5
-    d_max = 0
-
-    halo_mass = 0.
-    for idx in progressbar.progressbar(ord1):
-        if d[idx]**.5 > cutoff:
-            break
-        ##Likely unnecessary since no change in results/performance.
-        # if denuniq[idx] < 0.247:
-        #     continue
-        ##Use velocity relative to the cumulative center-of-mass
-        tmp_vrel = np.linalg.norm(vuniq[idx] - com_vel)
-        if tmp_vrel > (2. * G * (com_masses + muniq[idx]) / d[idx]**.5)**.5:
-            continue
-
-        ##Maybe can also replace with PotentialTarget?! Gives a lot of extra information...
-        # pe0 = muniq[idx] * pytreegrav.Potential(np.vstack((cumul_pos, xuniq[idx])),
-        #                                         np.append(cumul_masses, muniq[idx]),
-        #                                         softening=np.append(cumul_soft, huniq[idx]),
-        #                                         G=G, theta=0.7, method='bruteforce')
-
-        pe1 = muniq[idx] * pytreegrav.PotentialTarget(np.atleast_2d(xuniq[idx]), cumul_pos, cumul_masses,
-                                                softening_target=np.atleast_1d(huniq[idx]), softening_source=cumul_soft,
-                                                G=G, theta=0.7, method='bruteforce')[-1]
-        ke1 = KE(np.vstack([com_pos, xuniq[idx]]), np.append(com_masses, muniq[idx]),
-                 np.vstack([com_vel, vuniq[idx]]), np.append(0, uuniq[idx]))
-        # ke1 = KE(np.vstack([sys1.pos, xuniq[idx]]), np.append(sys1.mass, muniq[idx]),
-        #          np.vstack([sys1.vel, vuniq[idx]]), np.append(0, uuniq[idx]))
-        tmp_pos = [xuniq[idx], cumul_pos]
-        tmp_mass = [muniq[idx], cumul_masses]
-        tmp_soft = [huniq[idx], cumul_soft]
-        tmp_accel = [accel_gas[idx], cumul_accel]
-        tide_crit = check_tides_gen(tmp_pos, tmp_mass, tmp_accel, tmp_soft, 0, 1, G)
-
-        if (pe1 + ke1 < 0) and (tide_crit):
-            if non_pair:
-
-                cumul_accel = (np.sum(cumul_masses) * cumul_accel + muniq[idx] * accel_gas[idx]) / (
-                            muniq[idx] + np.sum(cumul_masses))
-                cumul_masses = np.append(cumul_masses, muniq[idx])
-                cumul_pos = np.vstack([cumul_pos, xuniq[idx]])
-                cumul_vel = np.vstack([cumul_vel, vuniq[idx]])
-                cumul_soft = np.append(cumul_soft, huniq[idx])
-                cumul_u = np.append(cumul_u, uuniq[idx])
-                com_masses = np.sum(cumul_masses)
-                com_pos = np.average(cumul_pos, weights=cumul_masses, axis=0)
-                com_vel = np.average(cumul_vel, weights=cumul_masses, axis=0)
-
-            d_max = d[idx]**.5
-            halo_mass += muniq[idx]
-
-    return halo_mass, d_max
+# def get_gas_mass_bound_og(sys1, xuniq, muniq, huniq, accel_gas, G=GN, cutoff=0.1, non_pair=False):
+#     if sys1.multiplicity > 1:
+#         cumul_masses = np.copy(sys1.sub_mass)
+#         cumul_pos = np.copy(sys1.sub_pos)
+#         cumul_soft = np.copy(sys1.sub_soft)
+#         cumul_vel = np.copy(sys1.sub_vel)
+#     else:
+#         cumul_masses = np.array([sys1.mass])
+#         cumul_pos = np.copy([sys1.pos])
+#         cumul_soft = np.array([sys1.soft])
+#         cumul_vel = np.copy([sys1.vel])
+#     cumul_u = np.zeros(len(cumul_pos))
+#     cumul_accel = sys1.accel
+#     com_masses = sys1.mass
+#     com_pos = sys1.pos
+#     com_vel = sys1.vel
+#     # vuniq_mag = np.sum((vuniq - sys1.vel) * (vuniq - sys1.vel), axis=1) ** .5
+#
+#     d = xuniq - com_pos
+#     d = np.sum(d * d, axis=1)
+#     ord1 = np.argsort(d)
+#     # d_sorted = d[ord1]**.5
+#     d_max = 0
+#
+#     halo_mass = 0.
+#     for idx in progressbar.progressbar(ord1):
+#         if d[idx]**.5 > cutoff:
+#             break
+#         ##Likely unnecessary since no change in results/performance.
+#         # if denuniq[idx] < 0.247:
+#         #     continue
+#         ##Use velocity relative to the cumulative center-of-mass
+#         tmp_vrel = np.linalg.norm(vuniq[idx] - com_vel)
+#         if tmp_vrel > (2. * G * (com_masses + muniq[idx]) / d[idx]**.5)**.5:
+#             continue
+#
+#         ##Maybe can also replace with PotentialTarget?! Gives a lot of extra information...
+#         # pe0 = muniq[idx] * pytreegrav.Potential(np.vstack((cumul_pos, xuniq[idx])),
+#         #                                         np.append(cumul_masses, muniq[idx]),
+#         #                                         softening=np.append(cumul_soft, huniq[idx]),
+#         #                                         G=G, theta=0.7, method='bruteforce')
+#
+#         pe1 = muniq[idx] * pytreegrav.PotentialTarget(np.atleast_2d(xuniq[idx]), cumul_pos, cumul_masses,
+#                                                 softening_target=np.atleast_1d(huniq[idx]), softening_source=cumul_soft,
+#                                                 G=G, theta=0.7, method='bruteforce')[-1]
+#         ke1 = KE(np.vstack([com_pos, xuniq[idx]]), np.append(com_masses, muniq[idx]),
+#                  np.vstack([com_vel, vuniq[idx]]), np.append(0, uuniq[idx]))
+#         # ke1 = KE(np.vstack([sys1.pos, xuniq[idx]]), np.append(sys1.mass, muniq[idx]),
+#         #          np.vstack([sys1.vel, vuniq[idx]]), np.append(0, uuniq[idx]))
+#         tmp_pos = [xuniq[idx], cumul_pos]
+#         tmp_mass = [muniq[idx], cumul_masses]
+#         tmp_soft = [huniq[idx], cumul_soft]
+#         tmp_accel = [accel_gas[idx], cumul_accel]
+#         tide_crit = check_tides_gen(tmp_pos, tmp_mass, tmp_accel, tmp_soft, 0, 1, G)
+#
+#         if (pe1 + ke1 < 0) and (tide_crit):
+#             if non_pair:
+#
+#                 cumul_accel = (np.sum(cumul_masses) * cumul_accel + muniq[idx] * accel_gas[idx]) / (
+#                             muniq[idx] + np.sum(cumul_masses))
+#                 cumul_masses = np.append(cumul_masses, muniq[idx])
+#                 cumul_pos = np.vstack([cumul_pos, xuniq[idx]])
+#                 cumul_vel = np.vstack([cumul_vel, vuniq[idx]])
+#                 cumul_soft = np.append(cumul_soft, huniq[idx])
+#                 cumul_u = np.append(cumul_u, uuniq[idx])
+#                 com_masses = np.sum(cumul_masses)
+#                 com_pos = np.average(cumul_pos, weights=cumul_masses, axis=0)
+#                 com_vel = np.average(cumul_vel, weights=cumul_masses, axis=0)
+#
+#             d_max = d[idx]**.5
+#             halo_mass += muniq[idx]
+#
+#     return halo_mass, d_max
 
 
 
@@ -305,7 +311,8 @@ max_dist_sing = np.zeros(len(partpos))
 ids_sing = np.zeros(len(partpos))
 for ii, pp in enumerate(partpos):
     sys_tmp = find_multiples_new2.system(partpos[ii], partvels[ii], partmasses[ii], partsink[ii], partids[ii], accel_stars[ii], 0)
-    halo_masses_sing[ii], max_dist_sing[ii], bound_index = get_gas_mass_bound_refactor(sys_tmp, (xuniq, vuniq, muniq, huniq, uuniq, accel_gas),
+    gas_data = (xuniq, vuniq, muniq, huniq, uuniq, accel_gas)
+    halo_masses_sing[ii], max_dist_sing[ii], bound_index = get_gas_mass_bound_refactor(sys_tmp, gas_data, partpos,
                                                                                         G=GN, cutoff=cutoff, non_pair=non_pair,
                                                                                         compress=args.compress, tides_factor=args.tides_factor)
     ids_sing[ii] = partids[ii]
