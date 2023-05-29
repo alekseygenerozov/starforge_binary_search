@@ -316,11 +316,11 @@ for ii, pp in enumerate(partpos):
                                                                                         G=GN, cutoff=cutoff, non_pair=non_pair,
                                                                                         compress=args.compress, tides_factor=args.tides_factor)
     ids_sing[ii] = partids[ii]
-    output_file = "bound_stars_{0}_np{1}_c{2}_comp{3}_tf{4}_{5}".format(snap_idx, non_pair, cutoff, args.compress,
+    output_file = "gas_halo_data/bound_stars_{0}_np{1}_c{2}_comp{3}_tf{4}_{5}".format(snap_idx, non_pair, cutoff, args.compress,
                                                                      args.tides_factor, ii)
     np.savetxt(output_file, bound_index)
 
-output_file ="tmp_halo_masses_sing_{0}_np{1}_c{2}_comp{3}_tf{4}".format(snap_idx, non_pair, cutoff, args.compress,
+output_file ="gas_halo_data/halo_masses_sing_{0}_np{1}_c{2}_comp{3}_tf{4}".format(snap_idx, non_pair, cutoff, args.compress,
                                                                      args.tides_factor)
 np.savetxt(output_file, np.transpose((halo_masses_sing, ids_sing, max_dist_sing)))
 
