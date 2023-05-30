@@ -159,39 +159,37 @@ def select_in_subregion(x, Ngrid1D=1):
         regions.append((x[:, 0] >= xlim) & (x[:, 0] <= (xlim+dx)) & (x[:, 1] >= ylim) & (x[:, 1] <= (ylim+dy)) & (x[:, 2] >= zlim) & (x[:, 2] <= (zlim+dz)))
     return regions
 
-def check_tides(pos, mass, accel, soft, idx1, idx2, G):
-    """
-    Check whether tidal force is greater than two-body force between two stars.
-
-    :param Array-like mass: Particle positions
-    :param Array-like pos: Particle positions
-    :param Array-like accel: Particle accelerations
-    :param Array-like soft: Softening length
-    :param int idx1: First particle index
-    :param int idx2: Second particle index
-
-    :return: Boolean indicating whether tidal force exceed the internal two-body force.
-    :rtype: bool
-
-    """
-    f2body_i = mass[idx1] * pytreegrav.AccelTarget(np.atleast_2d(pos[idx1]), np.atleast_2d(pos[idx2]),
-                                                   np.atleast_1d(mass[idx2]), softening_target=np.atleast_1d(soft[idx1]),
-                                                   softening_source=np.atleast_1d(soft[idx2]), G=G)
-    com_accel = (mass[idx1] * accel[idx1] + mass[idx2] * accel[idx2]) / (mass[idx1] + mass[idx2])
-    f_tides = mass[idx1] * (accel[idx1] - com_accel) - f2body_i
-    a_tides = f_tides / mass[idx1]
-
-    tidal_crit = (np.linalg.norm(f_tides) < np.linalg.norm(f2body_i))
-    return tidal_crit, a_tides
+# def check_tides(pos, mass, accel, soft, idx1, idx2, G):
+#     """
+#     Check whether tidal force is greater than two-body force between two stars.
+#
+#     :param Array-like mass: Particle positions
+#     :param Array-like pos: Particle positions
+#     :param Array-like accel: Particle accelerations
+#     :param Array-like soft: Softening length
+#     :param int idx1: First particle index
+#     :param int idx2: Second particle index
+#
+#     :return: Boolean indicating whether tidal force exceed the internal two-body force.
+#     :rtype: bool
+#
+#     """
+#     f2body_i = mass[idx1] * pytreegrav.AccelTarget(np.atleast_2d(pos[idx1]), np.atleast_2d(pos[idx2]),
+#                                                    np.atleast_1d(mass[idx2]), softening_target=np.atleast_1d(soft[idx1]),
+#                                                    softening_source=np.atleast_1d(soft[idx2]), G=G)
+#     com_accel = (mass[idx1] * accel[idx1] + mass[idx2] * accel[idx2]) / (mass[idx1] + mass[idx2])
+#     f_tides = mass[idx1] * (accel[idx1] - com_accel) - f2body_i
+#     a_tides = f_tides / mass[idx1]
+#
+#     tidal_crit = (np.linalg.norm(f_tides) < np.linalg.norm(f2body_i))
+#     return tidal_crit, a_tides
 
 def check_tides_sys(sys1, sys2, G):
     """
     Check whether tidal force is greater than two-body force between two stars.
 
-    :param Array-like mass: Particle positions
-    :param Array-like pos: Particle positions
-    :param Array-like accel: Particle accelerations
-    :param Array-like soft: Softening length
+    :param System sys1: Particle positions
+    :param System sys2: Particle positions
     :param int idx1: First particle index
     :param int idx2: Second particle index
 
@@ -224,17 +222,6 @@ def check_tides_sys(sys1, sys2, G):
     compress = np.dot(a_tides, sys2.pos - sys1.pos) > 0
 
     return (tidal_crit or compress), a_tides
-
-    # sys2_pos = sys2.sub_pos
-    # sys2_mass = sys2.sub_mass
-    # f2body_i = mass[idx1] * pytreegrav.AccelTarget(np.atleast_2d(pos[idx1]), np.atleast_2d(pos[idx2]),
-    #                                                np.atleast_1d(mass[idx2]), softening_target=np.atleast_1d(soft[idx1]),
-    #                                                softening_source=np.atleast_1d(soft[idx2]), G=G)
-    # com_accel = (mass[idx1] * accel[idx1] + mass[idx2] * accel[idx2]) / (mass[idx1] + mass[idx2])
-    # f_tides = mass[idx1] * (accel[idx1] - com_accel) - f2body_i
-    #
-    # tidal_crit = (np.linalg.norm(f_tides) < 2. * np.linalg.norm(f2body_i))
-    # return tidal_crit
 
 def flatten_ids(id):
     """
@@ -325,6 +312,12 @@ class system(object):
         Add softening length of system subcomponent
         """
         self.sub_soft = np.concatenate((self.sub_soft, h))
+
+    def add_a_tides(self, a_tides):
+        """
+        Add tidal acceleration to the system
+        """
+        self.a_tides = np.concatenate((self.a_tides, a_tides))
 
 
 class cluster(object):
@@ -464,10 +457,10 @@ class cluster(object):
 
             mult_total = self.systems[idx1].multiplicity + self.systems[idx2].multiplicity
             ###Tidal criterion:
-            tidal_crit, at0 = check_tides(pos, mass, accel, soft, idx1, idx2, self.G)
+            #tidal_crit, at0 = check_tides(pos, mass, accel, soft, idx1, idx2, self.G)
             tidal_crit_1, at1 = check_tides_sys(self.systems[idx1], self.systems[idx2], self.G)
             tidal_crit_2, at2 = check_tides_sys(self.systems[idx2], self.systems[idx1], self.G)
-            # tidal_crit = tidal_crit_1 and tidal_crit_2
+            tidal_crit = tidal_crit_1 and tidal_crit_2
             ##Symmetrize tidal criterion? (e.g. Call again with arguments flipped)
             tidal_crit = (tidal_crit) or (not self.tides)
             ##Check that binary is bound, multiplicity is less than four, and that the binary is tidally stable. Tides can be turned off by setting self.tides to False.
@@ -478,8 +471,8 @@ class cluster(object):
                 self._orbit_adjust_add(ii, ID_NEW)
                 self._orbit_adjust_delete(ii, ID1, ID2)
                 ##Store tidal acceleration (proper setter)
-                # self.systems[-1].at.append(at1)
-                # self.systems[-1].at.append(at2)
+                self.systems[-1].add_atides(at1)
+                self.systems[-1].add_atides(at2)
 
                 return
 
@@ -599,6 +592,7 @@ def main():
     # den, x, m, h, u, b, v, t, fmol, fneu, partpos, partmasses, partvels, partids, tcgs, unit_base = load_data(snapshot_file, res_limit=1e-3)
     # cl = cluster(partpos, partvels, partmasses, partids)
     den, x, m, h, u, b, v, t, fmol, fneu, partpos, partmasses, partvels, partids, partsink, tcgs, unit_base = load_data(snapshot_file, res_limit=1e-3)
+    ##TO DO: UPDATE ONCE WE HAVE METHOD TO STORE HALO DATA.
     halo_masses = np.zeros(len(partmasses))
     if args.halo_mass_file:
         halo_masses = np.genfromtxt(args.halo_mass_file)
@@ -614,6 +608,7 @@ def main():
     partmasses = partmasses.astype(np.float64)
     partsink = partsink.astype(np.float64)
 
+    ##TO DO: MAKE SURE THIS IS CONSISTENT WITH THE SIMULATION
     accel_gas = pytreegrav.AccelTarget(partpos, xuniq, muniq, softening_target=partsink, softening_source=huniq, G=4.301e3)
     accel_stars = pytreegrav.Accel(partpos, partmasses, partsink, method='bruteforce', G=4.301e3)
     #

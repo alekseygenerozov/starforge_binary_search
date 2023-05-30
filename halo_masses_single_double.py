@@ -284,6 +284,8 @@ sys_mult = np.array([ss.multiplicity for ss in cl.systems])
 sys_id = np.array(cl.get_system_ids)
 systems1 = [ss for ss in cl.systems]
 
+##TO DO: WILL NEED TO GENERATE ACCELERATION DATA ON THE FLY?
+##GENERATE THIS DATA IF THIS IS NOT PRESENT
 accel_gas = np.genfromtxt('accel_gas_{0}'.format(snap_idx))
 accel_stars = np.genfromtxt('accel_stars_{0}'.format(snap_idx))
 snap_file = 'snapshot_{0}.hdf5'.format(snap_idx)
