@@ -8,6 +8,7 @@ from find_multiples_new2 import cluster, system
 import pytreegrav
 import progressbar
 import argparse
+import h5py
 
 GN = 4.301e3
 
@@ -124,6 +125,28 @@ def add_to_blob(blob, gas_data, idx):
 
     return blob
 
+
+# def get_bound_bins(partpos, bound_index, in1=0, out1=0.51, delta1=0.01):
+#     absc = np.arange(in1, out1, delta1)
+#     partpos = np.copy(partpos)
+#     nsinks = len(partpos)
+#
+#
+#     for ii in range(nsinks):
+#         ##Halo data for one sink
+#         halo_dat = np.genfromtxt(path1 + "_{0}".format(ii))
+#         ##Distance from gas particles to this sink
+#         ##Not good practice since we are using xuniq from the outer scope!!
+#         d = xuniq - partpos[ii]
+#         d = np.sum(d * d, axis=1) ** .5
+#         ##Bin gas particles by distance and store.
+#         val, bins = np.histogram(d[d < 0.5], bins=absc)
+#         val2, bins = np.histogram(d[halo_dat.astype(int)], bins=absc)
+#         gas_all1[ii] = val
+#         gas_bound1[ii] = val2
+#
+#     return bins, gas_all1, gas_bound1
+
 def get_gas_mass_bound_refactor(sys1, gas_data, sinkpos, G=GN, cutoff=0.1, non_pair=False, compress=False, tides_factor=1):
     """
     Get to gas mass bound to a system. This is meant to be applied to a *single star.*
@@ -143,6 +166,8 @@ def get_gas_mass_bound_refactor(sys1, gas_data, sinkpos, G=GN, cutoff=0.1, non_p
     ord1 = np.argsort(d)
     d_max = 0
     halo_mass = 0.
+    rad_bins = np.geomspace(sys1.soft, cutoff, 100)
+    halo_mass_bins = np.zeros(len(rad_bins))
     bound_index = []
     particle_indices = range(len(xuniq1))
     for idx in progressbar.progressbar(ord1):
@@ -181,9 +206,13 @@ def get_gas_mass_bound_refactor(sys1, gas_data, sinkpos, G=GN, cutoff=0.1, non_p
 
             d_max = d[idx]
             halo_mass += muniq1[idx]
+            ##Storing binned data
+            halo_mass_idx = np.searchsorted(rad_bins, d[idx])
+            halo_mass_bins[halo_mass_idx] += muniq1[idx]
             bound_index.append(particle_indices[idx])
 
-    return halo_mass, d_max, bound_index
+    halo_mass_bins = np.cumsum(halo_mass_bins)
+    return halo_mass, d_max, bound_index, .5 * (rad_bins[:-1] + rad_bins[1:]), halo_mass_bins[1:]
 
 #Add cumulative argument for non-pairwise algorithm!!! Add vuniq to arguments as well
 # def get_gas_mass_bound_og(sys1, xuniq, muniq, huniq, accel_gas, G=GN, cutoff=0.1, non_pair=False):
@@ -284,8 +313,7 @@ sys_mult = np.array([ss.multiplicity for ss in cl.systems])
 sys_id = np.array(cl.get_system_ids)
 systems1 = [ss for ss in cl.systems]
 
-##TO DO: WILL NEED TO GENERATE ACCELERATION DATA ON THE FLY?
-##GENERATE THIS DATA IF THIS IS NOT PRESENT
+##TO DO: GENERATE THIS DATA IF THIS IS NOT PRESENT
 accel_gas = np.genfromtxt('accel_gas_{0}'.format(snap_idx))
 accel_stars = np.genfromtxt('accel_stars_{0}'.format(snap_idx))
 snap_file = 'snapshot_{0}.hdf5'.format(snap_idx)
@@ -311,17 +339,23 @@ partsink = partsink.astype(np.float64)
 halo_masses_sing = np.zeros(len(partpos))
 max_dist_sing = np.zeros(len(partpos))
 ids_sing = np.zeros(len(partpos))
+gas_dat_h5 = h5py.File("halo_masses_sing_{0}_np{1}_c{2}_comp{3}_tf{4}.hdf5".format(snap_idx, non_pair, cutoff, args.compress,
+                                                                           args.tides_factor), 'a')
 for ii, pp in enumerate(partpos):
     sys_tmp = find_multiples_new2.system(partpos[ii], partvels[ii], partmasses[ii], partsink[ii], partids[ii], accel_stars[ii], 0)
     gas_data = (xuniq, vuniq, muniq, huniq, uuniq, accel_gas)
-    halo_masses_sing[ii], max_dist_sing[ii], bound_index = get_gas_mass_bound_refactor(sys_tmp, gas_data, partpos,
+    ##TO DO: CALCULATE AND STORE FULL PROFILE HERE...USE LOGARITHMIC GRID FROM SOFTENING LENGTH TO CUTOFF
+    halo_masses_sing[ii], max_dist_sing[ii], bound_index, rad_bins, halo_mass_bins = get_gas_mass_bound_refactor(sys_tmp, gas_data, partpos,
                                                                                         G=GN, cutoff=cutoff, non_pair=non_pair,
                                                                                         compress=args.compress, tides_factor=args.tides_factor)
     ids_sing[ii] = partids[ii]
-    output_file = "gas_halo_data/bound_stars_{0}_np{1}_c{2}_comp{3}_tf{4}_{5}".format(snap_idx, non_pair, cutoff, args.compress,
-                                                                     args.tides_factor, ii)
-    np.savetxt(output_file, bound_index)
+    gas_dat_h5.create_dataset("halo_{0}".format(partids[ii]), data=np.transpose((rad_bins, halo_mass_bins)))
 
+    # output_file = "gas_halo_data/bound_stars_{0}_np{1}_c{2}_comp{3}_tf{4}_{5}".format(snap_idx, non_pair, cutoff, args.compress,
+    #                                                                  args.tides_factor, ii)
+    # np.savetxt(output_file, bound_index)
+
+gas_dat_h5.close()
 output_file ="gas_halo_data/halo_masses_sing_{0}_np{1}_c{2}_comp{3}_tf{4}".format(snap_idx, non_pair, cutoff, args.compress,
                                                                      args.tides_factor)
 np.savetxt(output_file, np.transpose((halo_masses_sing, ids_sing, max_dist_sing)))
