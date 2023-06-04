@@ -207,6 +207,7 @@ def check_tides_sys(sys1, sys2, G):
     sys2_mass = sys2.sub_mass
     sys2_soft = sys2.sub_soft
     ##Acceleration of system 1 particles due to system 2 particles
+    ##Acceleration here??
     a_internal = pytreegrav.AccelTarget(np.atleast_2d(sys1_pos), np.atleast_2d(sys2_pos),
                                                    np.atleast_1d(sys2_mass), softening_target=np.atleast_1d(sys1_soft),
                                                    softening_source=np.atleast_1d(sys2_soft), G=G)
@@ -471,8 +472,8 @@ class cluster(object):
                 self._orbit_adjust_add(ii, ID_NEW)
                 self._orbit_adjust_delete(ii, ID1, ID2)
                 ##Store tidal acceleration (proper setter)
-                self.systems[-1].add_atides(at1)
-                self.systems[-1].add_atides(at2)
+                self.systems[-1].add_a_tides(at1)
+                self.systems[-1].add_a_tides(at2)
 
                 return
 
@@ -595,7 +596,7 @@ def main():
     ##TO DO: UPDATE ONCE WE HAVE METHOD TO STORE HALO DATA.
     halo_masses = np.zeros(len(partmasses))
     if args.halo_mass_file:
-        halo_masses = np.genfromtxt(args.halo_mass_file)
+        halo_masses = np.genfromtxt(args.halo_mass_file)[:, 0]
     partmasses += halo_masses
 
     xuniq, indx = np.unique(x, return_index=True, axis=0)
@@ -608,18 +609,20 @@ def main():
     partmasses = partmasses.astype(np.float64)
     partsink = partsink.astype(np.float64)
 
-    ##TO DO: MAKE SURE THIS IS CONSISTENT WITH THE SIMULATION
-    accel_gas = pytreegrav.AccelTarget(partpos, xuniq, muniq, softening_target=partsink, softening_source=huniq, G=4.301e3)
-    accel_stars = pytreegrav.Accel(partpos, partmasses, partsink, method='bruteforce', G=4.301e3)
+    ##TO DO: MAKE SURE THIS IS CONSISTENT WITH THE SIMULATION (Theta, tree gravity versus brute force)
+    accel_gas = pytreegrav.AccelTarget(partpos, xuniq, muniq, softening_target=partsink, softening_source=huniq, theta=0.5, G=4.301e3)
+    accel_stars = pytreegrav.Accel(partpos, partmasses, partsink, theta=0.5, G=4.301e3)
     #
     cl = cluster(partpos, partvels, partmasses, partsink, partids, accel_stars + accel_gas,
                  sma_order=sma_order, mult_max=args.mult_max, Ngrid1D=args.ngrid)
-    with open(snapshot_file.replace(".hdf5", "")+"_TidesTrue"+"_smaOrder{0}_mult{1}_ngrid{2}".format(sma_order, args.mult_max, args.ngrid)+".p", "wb") as ff:
+    with open("testing_" + snapshot_file.replace(".hdf5", "")+"_TidesTrue" +
+              "_smaOrder{0}_mult{1}_ngrid{2}_hm{3}".format(sma_order, args.mult_max, args.ngrid, len(args.halo_mass_file) > 0) + ".p", "wb") as ff:
         pickle.dump(cl, ff)
 
     cl = cluster(partpos, partvels, partmasses, partsink, partids, accel_stars + accel_gas, tides=False,
                  sma_order=sma_order, mult_max=args.mult_max, Ngrid1D=args.ngrid)
-    with open(snapshot_file.replace(".hdf5", "")+"_TidesFalse"+"_smaOrder{0}_mult{1}_ngrid{2}".format(sma_order, args.mult_max, args.ngrid)+".p", "wb") as ff:
+    with open("testing_" + snapshot_file.replace(".hdf5", "")+"_TidesFalse" +
+              "_smaOrder{0}_mult{1}_ngrid{2}_hm{3}".format(sma_order, args.mult_max, args.ngrid, len(args.halo_mass_file) > 0) +".p", "wb") as ff:
         pickle.dump(cl, ff)
 
 

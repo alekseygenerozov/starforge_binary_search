@@ -57,6 +57,7 @@ def check_tides_gen(pos, mass, accel, soft, idx1, idx2, G, compress=False, tides
     :rtype: bool
 
     """
+    ##Acceleration may be different from what we get when using the tree?? Or is it unlikely??
     f2body_i = mass[idx1] * pytreegrav.AccelTarget(np.atleast_2d(pos[idx1]), np.atleast_2d(pos[idx2]),
                                                np.atleast_1d(mass[idx2]),
                                                softening_target=np.atleast_1d(soft[idx1]),
@@ -65,9 +66,10 @@ def check_tides_gen(pos, mass, accel, soft, idx1, idx2, G, compress=False, tides
     ##Safeguard for rounding error??
     f_tides = mass[idx1] * (accel[idx1] - com_accel) - f2body_i
 
+    ##Set tides factor automatically based on the inclination of the binary?? Check literature...
     tidal_crit = (np.linalg.norm(f_tides) < tides_factor * np.linalg.norm(f2body_i))
-    ##Add compressive criterion HERE!!
     com_pos = np.average(pos[idx2], weights=mass[idx2], axis=0)
+    ##Compressive tides...
     if compress:
         compress_check = np.dot(f_tides, com_pos - pos[idx1]) > 0
         tidal_crit = tidal_crit or compress_check
@@ -290,7 +292,7 @@ def get_gas_mass_bound_refactor(sys1, gas_data, sinkpos, G=GN, cutoff=0.1, non_p
 #     return halo_mass, d_max
 
 
-
+##Fix GN from the simulation data rather than hard-coding...
 parser = argparse.ArgumentParser(description="Parse starforge snapshot, and get multiple data.")
 parser.add_argument("snap", help="Index of snapshot to read")
 parser.add_argument("--non_pair", action="store_true", help="Flag to turn on non-pairwise algorithm")
@@ -314,11 +316,12 @@ sys_id = np.array(cl.get_system_ids)
 systems1 = [ss for ss in cl.systems]
 
 ##TO DO: GENERATE THIS DATA IF THIS IS NOT PRESENT
-accel_gas = np.genfromtxt('accel_gas_{0}'.format(snap_idx))
-accel_stars = np.genfromtxt('accel_stars_{0}'.format(snap_idx))
+# accel_gas = np.genfromtxt('accel_gas_{0}'.format(snap_idx))
+# accel_stars = np.genfromtxt('accel_stars_{0}'.format(snap_idx))
 snap_file = 'snapshot_{0}.hdf5'.format(snap_idx)
 den, x, m, h, u, b, v, t, fmol, fneu, partpos, partmasses, partvels, partids, partsink, tcgs, unit_base =\
 find_multiples_new2.load_data(snap_file, res_limit=1e-3)
+
 
 xuniq, indx = np.unique(x, return_index=True, axis=0)
 muniq = m[indx]
@@ -335,6 +338,17 @@ denuniq = denuniq.astype(np.float64)
 partpos = partpos.astype(np.float64)
 partmasses = partmasses.astype(np.float64)
 partsink = partsink.astype(np.float64)
+##Calculate the accelerations of the sink particles due to gas and stars. Use the full collection of stars...
+# accel_gas = pytreegrav.AccelTarget(partpos, xuniq, muniq, softening_target=partsink, softening_source=huniq, theta=0.5, G=4.301e3)
+# accel_stars = pytreegrav.Accel(partpos, partmasses, partsink, theta=0.5, G=4.301e3)
+accel_gas_gas = pytreegrav.Accel(xuniq, muniq, huniq,  G=4.301e3, theta=0.5)
+accel_gas_stars = pytreegrav.AccelTarget(xuniq, partpos, partmasses, softening_target=huniq, softening_source=partsink,
+                                        theta=0.5, G=4.301e3)
+accel_stars_gas = pytreegrav.AccelTarget(partpos, xuniq, muniq, softening_target=partsink, softening_source=huniq,
+                                         theta=0.5, G=4.301e3)
+accel_stars_stars = pytreegrav.Accel(partpos, partmasses, partsink, theta=0.5, G=4.301e3)
+accel_gas = accel_gas_gas + accel_gas_stars
+accel_stars = accel_stars_gas + accel_stars_stars
 
 halo_masses_sing = np.zeros(len(partpos))
 max_dist_sing = np.zeros(len(partpos))
@@ -344,7 +358,7 @@ gas_dat_h5 = h5py.File("halo_masses_sing_{0}_np{1}_c{2}_comp{3}_tf{4}.hdf5".form
 for ii, pp in enumerate(partpos):
     sys_tmp = find_multiples_new2.system(partpos[ii], partvels[ii], partmasses[ii], partsink[ii], partids[ii], accel_stars[ii], 0)
     gas_data = (xuniq, vuniq, muniq, huniq, uuniq, accel_gas)
-    ##TO DO: CALCULATE AND STORE FULL PROFILE HERE...USE LOGARITHMIC GRID FROM SOFTENING LENGTH TO CUTOFF
+    ##Mass bound
     halo_masses_sing[ii], max_dist_sing[ii], bound_index, rad_bins, halo_mass_bins = get_gas_mass_bound_refactor(sys_tmp, gas_data, partpos,
                                                                                         G=GN, cutoff=cutoff, non_pair=non_pair,
                                                                                         compress=args.compress, tides_factor=args.tides_factor)
