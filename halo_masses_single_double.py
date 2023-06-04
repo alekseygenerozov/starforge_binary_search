@@ -126,7 +126,7 @@ def add_to_blob(blob, gas_data, idx):
 
     return blob
 
-def get_gas_mass_bound_refactor(sys1, gas_data, sinkpos, G=GN, cutoff=0.1, non_pair=False, compress=False, tides_factor=1):
+def get_gas_mass_bound_refactor(sys1, gas_data, sinkpos, G=GN, cutoff=0.5, non_pair=False, compress=False, tides_factor=2):
     """
     Get to gas mass bound to a system. This is meant to be applied to a *single star.*
 
@@ -199,8 +199,8 @@ def main():
     parser.add_argument("snap", help="Index of snapshot to read")
     parser.add_argument("--non_pair", action="store_true", help="Flag to turn on non-pairwise algorithm")
     parser.add_argument("--compress", action="store_true", help="Filter out compressive tidal forces")
-    parser.add_argument("--tides_factor", type=float, default=1.0, help="Prefactor for check of tidal criterion (1)")
-    parser.add_argument("--cutoff", type=float, default=0.1, help="Outer cutoff to look for bound gas (0.1 pc)")
+    parser.add_argument("--tides_factor", type=float, default=2.0, help="Prefactor for check of tidal criterion (2.0)")
+    parser.add_argument("--cutoff", type=float, default=0.5, help="Outer cutoff to look for bound gas (0.5 pc)")
 
     args = parser.parse_args()
 
