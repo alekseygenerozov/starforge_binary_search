@@ -36,7 +36,7 @@ def KE(xc, mc, vc, uc):
 
 
 
-def check_tides_gen(pos, mass, accel, soft, idx1, idx2, G, compress=False, tides_factor=1):
+def check_tides_gen(pos, mass, accel, soft, idx1, idx2, G, compress=False, tides_factor=2):
     """
     Estimate of tidal force for SINGLE gas cell + multiple...position, mass, etc. of gas cell
     has to come first in pos, mass, etc.
@@ -49,7 +49,7 @@ def check_tides_gen(pos, mass, accel, soft, idx1, idx2, G, compress=False, tides
     :param int idx2: Second particle index
     :param float G: Gravitational constant
     :param bool compress (False): Filtering out compressive tides
-    :param float tides_factor (1): Prefactor used in comparison of tidal and internal forces.
+    :param float tides_factor (2): Prefactor used in comparison of tidal and internal forces.
 
     :return: Boolean indicating whether tidal force exceed the internal two-body force.
     :rtype: bool
