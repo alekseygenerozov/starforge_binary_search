@@ -1,8 +1,8 @@
 import pickle
 import numpy as np
 import sys
-
-sys.path.append("/home/aleksey/Dropbox/projects/Hagai_projects/star_forge")
+##Code uses functionality in find_multiples_new2
+# sys.path.append("/home/aleksey/Dropbox/projects/Hagai_projects/star_forge")
 import find_multiples_new2
 from find_multiples_new2 import cluster, system
 import pytreegrav
@@ -10,16 +10,14 @@ import progressbar
 import argparse
 import h5py
 
-GN = 4.301e3
-
-def PE(xc, mc, hc, G=GN):
+def PE(xc, mc, hc, G=4.301e3):
     """ xc - array of positions
         mc - array of masses
         hc - array of smoothing lengths
         bc - array of magnetic field strengths
     """
     ## gravitational potential energy
-    phic = pytreegrav.Potential(xc, mc, hc, G=G, theta=0.7, method='bruteforce')  # G in code units
+    phic = pytreegrav.Potential(xc, mc, hc, G=G, theta=0.5, method='bruteforce')  # G in code units
     return 0.5 * (phic * mc).sum()
 
 
@@ -57,11 +55,11 @@ def check_tides_gen(pos, mass, accel, soft, idx1, idx2, G, compress=False, tides
     :rtype: bool
 
     """
-    ##THIS IS NOT QUITE RIGHT SINCE THE ACCELERATIONS ARE COMPUTED USING THE ENITRE TREE BUT I AM NOT QUITE SURE
+    ##THIS IS NOT QUITE RIGHT SINCE THE ACCELERATIONS SHOULD BE COMPUTED USING TREE METHOD...
     f2body_i = mass[idx1] * pytreegrav.AccelTarget(np.atleast_2d(pos[idx1]), np.atleast_2d(pos[idx2]),
                                                np.atleast_1d(mass[idx2]),
                                                softening_target=np.atleast_1d(soft[idx1]),
-                                               softening_source=np.atleast_1d(soft[idx2]), G=G)
+                                               softening_source=np.atleast_1d(soft[idx2]), G=G, method='bruteforce')
     com_accel = (mass[idx1] * accel[idx1] + np.sum(mass[idx2]) * accel[idx2]) / (mass[idx1] + np.sum(mass[idx2]))
     ##Safeguard for rounding error??
     f_tides = mass[idx1] * (accel[idx1] - com_accel) - f2body_i
@@ -126,7 +124,7 @@ def add_to_blob(blob, gas_data, idx):
 
     return blob
 
-def get_gas_mass_bound_refactor(sys1, gas_data, sinkpos, G=GN, cutoff=0.5, non_pair=False, compress=False, tides_factor=2):
+def get_gas_mass_bound_refactor(sys1, gas_data, sinkpos, G=4.301e3, cutoff=0.5, non_pair=False, compress=False, tides_factor=2):
     """
     Get to gas mass bound to a system. This is meant to be applied to a *single star.*
 
@@ -211,6 +209,7 @@ def main():
     snap_file = 'snapshot_{0}.hdf5'.format(snap_idx)
     den, x, m, h, u, b, v, t, fmol, fneu, partpos, partmasses, partvels, partids, partsink, tcgs, unit_base =\
     find_multiples_new2.load_data(snap_file, res_limit=1e-3)
+    GN = 6.672e-8 * (unit_base['UnitVel'] ** 2. * unit_base['UnitLength'] / (unit_base['UnitMass'])) ** -1.
 
     xuniq, indx = np.unique(x, return_index=True, axis=0)
     muniq = m[indx]
@@ -239,12 +238,12 @@ def main():
     ##Acceleration of gas due to stars
     accel_gas = pytreegrav.AccelTarget(xuniq, None, None,
                     softening_target=huniq, softening_source=soft_all,
-                    tree=tree1, theta=0.5, G=4.301e3)
+                    tree=tree1, theta=0.5, G=GN)
     ##Acceleration of stars/sinks. Accelerations due to gas are computed with tree. Acceleration due to sinks are
     ##computed with direct summation...Not sure about this
     accel_stars_gas = pytreegrav.AccelTarget(partpos, xuniq, muniq, softening_target=partsink, softening_source=huniq,
-                                             theta=0.5, G=4.301e3, method="tree")
-    accel_stars_stars = pytreegrav.Accel(partpos, partmasses, partsink, G=4.301e3, method="bruteforce")
+                                             theta=0.5, G=GN, method="tree")
+    accel_stars_stars = pytreegrav.Accel(partpos, partmasses, partsink, G=GN, method="bruteforce")
     accel_stars = accel_stars_gas + accel_stars_stars
 
     halo_masses_sing = np.zeros(len(partpos))

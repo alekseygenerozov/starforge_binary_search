@@ -77,7 +77,7 @@ def PE(xc, mc, hc, G=4.301e3):
         bc - array of magnetic field strengths
     """
     ## gravitational potential energy
-    phic = pytreegrav.Potential(xc, mc, hc, G=G, theta=0.7, method='bruteforce') # G in code units
+    phic = pytreegrav.Potential(xc, mc, hc, G=G, theta=0.5, method='bruteforce') # G in code units
     return 0.5 * (phic*mc).sum()
 
 
@@ -159,31 +159,6 @@ def select_in_subregion(x, Ngrid1D=1):
         regions.append((x[:, 0] >= xlim) & (x[:, 0] <= (xlim+dx)) & (x[:, 1] >= ylim) & (x[:, 1] <= (ylim+dy)) & (x[:, 2] >= zlim) & (x[:, 2] <= (zlim+dz)))
     return regions
 
-# def check_tides(pos, mass, accel, soft, idx1, idx2, G):
-#     """
-#     Check whether tidal force is greater than two-body force between two stars.
-#
-#     :param Array-like mass: Particle positions
-#     :param Array-like pos: Particle positions
-#     :param Array-like accel: Particle accelerations
-#     :param Array-like soft: Softening length
-#     :param int idx1: First particle index
-#     :param int idx2: Second particle index
-#
-#     :return: Boolean indicating whether tidal force exceed the internal two-body force.
-#     :rtype: bool
-#
-#     """
-#     f2body_i = mass[idx1] * pytreegrav.AccelTarget(np.atleast_2d(pos[idx1]), np.atleast_2d(pos[idx2]),
-#                                                    np.atleast_1d(mass[idx2]), softening_target=np.atleast_1d(soft[idx1]),
-#                                                    softening_source=np.atleast_1d(soft[idx2]), G=G)
-#     com_accel = (mass[idx1] * accel[idx1] + mass[idx2] * accel[idx2]) / (mass[idx1] + mass[idx2])
-#     f_tides = mass[idx1] * (accel[idx1] - com_accel) - f2body_i
-#     a_tides = f_tides / mass[idx1]
-#
-#     tidal_crit = (np.linalg.norm(f_tides) < np.linalg.norm(f2body_i))
-#     return tidal_crit, a_tides
-
 def check_tides_sys(sys1, sys2, G):
     """
     Check whether tidal force is greater than two-body force between two stars.
@@ -197,12 +172,11 @@ def check_tides_sys(sys1, sys2, G):
     :rtype: bool
 
     """
-    ##Can we avoid these two separate cases?? Dont want to handle single multiplicty stars as a special case.
-    ##In any case we still have to modify how we store sub positions.
+    #System 1
     sys1_pos = sys1.sub_pos
     sys1_mass = sys1.sub_mass
     sys1_soft = sys1.sub_soft
-    ##System 2...
+    ##System 2
     sys2_pos = sys2.sub_pos
     sys2_mass = sys2.sub_mass
     sys2_soft = sys2.sub_soft
@@ -334,8 +308,8 @@ class cluster(object):
     :param Array-like accels: Particle accelerations
 
     """
-    def __init__(self, ps, vs, ms, partsink, ids, accels, tides=True, Ngrid1D=1, sma_order=False, mult_max=4):
-        self.G = 4.301e3
+    def __init__(self, ps, vs, ms, partsink, ids, accels, tides=True, Ngrid1D=1, sma_order=False, mult_max=4, G=4.301e3):
+        self.G = G
         self.mult_max = mult_max
         self.Ngrid1D = Ngrid1D
         self.sma_order = sma_order
@@ -458,7 +432,6 @@ class cluster(object):
 
             mult_total = self.systems[idx1].multiplicity + self.systems[idx2].multiplicity
             ###Tidal criterion:
-            #tidal_crit, at0 = check_tides(pos, mass, accel, soft, idx1, idx2, self.G)
             tidal_crit_1, at1 = check_tides_sys(self.systems[idx1], self.systems[idx2], self.G)
             tidal_crit_2, at2 = check_tides_sys(self.systems[idx2], self.systems[idx1], self.G)
             tidal_crit = tidal_crit_1 and tidal_crit_2
@@ -608,10 +581,12 @@ def main():
     partpos = partpos.astype(np.float64)
     partmasses = partmasses.astype(np.float64)
     partsink = partsink.astype(np.float64)
+    GN = 6.672e-8 * (unit_base['UnitVel'] ** 2. * unit_base['UnitLength'] / (unit_base['UnitMass']))**-1.
 
     ##TO DO: MAKE SURE THIS IS CONSISTENT WITH THE SIMULATION (Theta, tree gravity versus brute force)
-    accel_gas = pytreegrav.AccelTarget(partpos, xuniq, muniq, softening_target=partsink, softening_source=huniq, theta=0.5, G=4.301e3)
-    accel_stars = pytreegrav.Accel(partpos, partmasses, partsink, theta=0.5, G=4.301e3)
+    accel_gas = pytreegrav.AccelTarget(partpos, xuniq, muniq, softening_target=partsink, softening_source=huniq,
+                                       theta=0.5, G=GN, method='tree')
+    accel_stars = pytreegrav.Accel(partpos, partmasses, partsink, theta=0.5, G=GN, method='bruteforce')
     #
     cl = cluster(partpos, partvels, partmasses, partsink, partids, accel_stars + accel_gas,
                  sma_order=sma_order, mult_max=args.mult_max, Ngrid1D=args.ngrid)
