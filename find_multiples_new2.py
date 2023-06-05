@@ -159,7 +159,7 @@ def select_in_subregion(x, Ngrid1D=1):
         regions.append((x[:, 0] >= xlim) & (x[:, 0] <= (xlim+dx)) & (x[:, 1] >= ylim) & (x[:, 1] <= (ylim+dy)) & (x[:, 2] >= zlim) & (x[:, 2] <= (zlim+dz)))
     return regions
 
-def check_tides_sys(sys1, sys2, G):
+def check_tides_sys(sys1, sys2, G, tides_factor=8, compress=False):
     """
     Check whether tidal force is greater than two-body force between two stars.
 
@@ -192,9 +192,11 @@ def check_tides_sys(sys1, sys2, G):
     ##Difference acceleration of system and com acceleration of com ##How do we want to order the subtraction?
     a_tides = (sys1.accel - com_accel) - a_internal_com
     ##Tidal criterion
-    tidal_crit = (np.linalg.norm(a_tides) < 8. * np.linalg.norm(a_internal_com))
+    tidal_crit = (np.linalg.norm(a_tides) < tides_factor * np.linalg.norm(a_internal_com))
     ##Check if tides are actually destructive
-    compress = np.dot(a_tides, sys2.pos - sys1.pos) > 0
+    if compress:
+        compress_check = np.dot(f_tides, com_pos - pos[idx1]) > 0
+        tidal_crit = tidal_crit or compress_check
 
     return (tidal_crit or compress), a_tides
 
@@ -308,11 +310,14 @@ class cluster(object):
     :param Array-like accels: Particle accelerations
 
     """
-    def __init__(self, ps, vs, ms, partsink, ids, accels, tides=True, Ngrid1D=1, sma_order=False, mult_max=4, G=4.301e3):
+    def __init__(self, ps, vs, ms, partsink, ids, accels, tides=True, Ngrid1D=1,
+                 sma_order=False, mult_max=4, G=4.301e3, tides_factor=8, compress=False):
         self.G = G
         self.mult_max = mult_max
         self.Ngrid1D = Ngrid1D
         self.sma_order = sma_order
+        self.tides_factor = tides_factor
+        self.compress = compress
         self.systems = []
         ##Adding each star as a system
         for ii in range(len(ps)):
@@ -432,8 +437,10 @@ class cluster(object):
 
             mult_total = self.systems[idx1].multiplicity + self.systems[idx2].multiplicity
             ###Tidal criterion:
-            tidal_crit_1, at1 = check_tides_sys(self.systems[idx1], self.systems[idx2], self.G)
-            tidal_crit_2, at2 = check_tides_sys(self.systems[idx2], self.systems[idx1], self.G)
+            tidal_crit_1, at1 = check_tides_sys(self.systems[idx1], self.systems[idx2], self.G,
+                                                tides_factor=self.tides_factor, compress=self.compress)
+            tidal_crit_2, at2 = check_tides_sys(self.systems[idx2], self.systems[idx1], self.G,
+                                                tides_factor=self.tides_factor, compress=self.compress)
             tidal_crit = tidal_crit_1 and tidal_crit_2
             ##Symmetrize tidal criterion? (e.g. Call again with arguments flipped)
             tidal_crit = (tidal_crit) or (not self.tides)
@@ -559,6 +566,8 @@ def main():
     parser.add_argument("--mult_max", type=int, default=4, help="Multiplicity cut (4).")
     parser.add_argument("--ngrid", type=int, default=1, help="Number of subgrids to use. Higher number will be faster,"
                                                              " but less accurate (1)")
+    parser.add_argument("--compress", action="store_true", help="Filter out compressive tidal forces")
+    parser.add_argument("--tides_factor", type=float, default=8.0, help="Prefactor for check of tidal criterion (8.0)")
     args = parser.parse_args()
 
     snapshot_file = args.snap
@@ -589,13 +598,13 @@ def main():
     accel_stars = pytreegrav.Accel(partpos, partmasses, partsink, theta=0.5, G=GN, method='bruteforce')
     #
     cl = cluster(partpos, partvels, partmasses, partsink, partids, accel_stars + accel_gas,
-                 sma_order=sma_order, mult_max=args.mult_max, Ngrid1D=args.ngrid)
+                 sma_order=sma_order, mult_max=args.mult_max, Ngrid1D=args.ngrid, tides_factor=args.tides_factor, compress=args.compress)
     with open("testing_" + snapshot_file.replace(".hdf5", "")+"_TidesTrue" +
               "_smaOrder{0}_mult{1}_ngrid{2}_hm{3}".format(sma_order, args.mult_max, args.ngrid, len(args.halo_mass_file) > 0) + ".p", "wb") as ff:
         pickle.dump(cl, ff)
 
     cl = cluster(partpos, partvels, partmasses, partsink, partids, accel_stars + accel_gas, tides=False,
-                 sma_order=sma_order, mult_max=args.mult_max, Ngrid1D=args.ngrid)
+                 sma_order=sma_order, mult_max=args.mult_max, Ngrid1D=args.ngrid, tides_factor=args.tides_factor, compress=args.compress)
     with open("testing_" + snapshot_file.replace(".hdf5", "")+"_TidesFalse" +
               "_smaOrder{0}_mult{1}_ngrid{2}_hm{3}".format(sma_order, args.mult_max, args.ngrid, len(args.halo_mass_file) > 0) +".p", "wb") as ff:
         pickle.dump(cl, ff)
