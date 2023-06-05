@@ -6,7 +6,7 @@ import sys
 import find_multiples_new2
 from find_multiples_new2 import cluster, system
 import pytreegrav
-import progressbar
+# import progressbar
 import argparse
 import h5py
 
@@ -149,7 +149,7 @@ def get_gas_mass_bound_refactor(sys1, gas_data, sinkpos, G=4.301e3, cutoff=0.5, 
     halo_mass_bins = np.zeros(len(rad_bins))
     bound_index = []
     particle_indices = range(len(xuniq1))
-    for idx in progressbar.progressbar(ord1):
+    for idx in ord1:
         if d[idx] > cutoff:
             break
         dall = (xuniq1[idx] - sinkpos)
