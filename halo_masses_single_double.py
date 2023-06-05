@@ -36,43 +36,43 @@ def KE(xc, mc, vc, uc):
 
 
 
-def check_tides_gen(pos, mass, accel, soft, idx1, idx2, G, compress=False, tides_factor=8):
-    """
-    Estimate of tidal force for SINGLE gas cell + multiple...position, mass, etc. of gas cell
-    has to come first in pos, mass, etc.
-
-    :param Array-like mass: Particle positions
-    :param Array-like pos: Particle positions
-    :param Array-like accel: Particle accelerations
-    :param Array-like soft: Softening length
-    :param int idx1: First particle index
-    :param int idx2: Second particle index
-    :param float G: Gravitational constant
-    :param bool compress (False): Filtering out compressive tides
-    :param float tides_factor (2): Prefactor used in comparison of tidal and internal forces.
-
-    :return: Boolean indicating whether tidal force exceed the internal two-body force.
-    :rtype: bool
-
-    """
-    ##THIS IS NOT QUITE RIGHT SINCE THE ACCELERATIONS SHOULD BE COMPUTED USING TREE METHOD...
-    f2body_i = mass[idx1] * pytreegrav.AccelTarget(np.atleast_2d(pos[idx1]), np.atleast_2d(pos[idx2]),
-                                               np.atleast_1d(mass[idx2]),
-                                               softening_target=np.atleast_1d(soft[idx1]),
-                                               softening_source=np.atleast_1d(soft[idx2]), G=G, method='bruteforce')
-    com_accel = (mass[idx1] * accel[idx1] + np.sum(mass[idx2]) * accel[idx2]) / (mass[idx1] + np.sum(mass[idx2]))
-    ##Safeguard for rounding error??
-    f_tides = mass[idx1] * (accel[idx1] - com_accel) - f2body_i
-
-    ##Set tides factor automatically based on the inclination of the binary?? Check literature...
-    tidal_crit = (np.linalg.norm(f_tides) < tides_factor * np.linalg.norm(f2body_i))
-    com_pos = np.average(pos[idx2], weights=mass[idx2], axis=0)
-    ##Compressive tides...
-    if compress:
-        compress_check = np.dot(f_tides, com_pos - pos[idx1]) > 0
-        tidal_crit = tidal_crit or compress_check
-
-    return tidal_crit
+# def check_tides_gen(pos, mass, accel, soft, idx1, idx2, G, compress=False, tides_factor=8.0):
+#     """
+#     Estimate of tidal force for SINGLE gas cell + multiple...position, mass, etc. of gas cell
+#     has to come first in pos, mass, etc.
+#
+#     :param Array-like mass: Particle positions
+#     :param Array-like pos: Particle positions
+#     :param Array-like accel: Particle accelerations
+#     :param Array-like soft: Softening length
+#     :param int idx1: First particle index
+#     :param int idx2: Second particle index
+#     :param float G: Gravitational constant
+#     :param bool compress (False): Filtering out compressive tides
+#     :param float tides_factor (2): Prefactor used in comparison of tidal and internal forces.
+#
+#     :return: Boolean indicating whether tidal force exceed the internal two-body force.
+#     :rtype: bool
+#
+#     """
+#     ##THIS IS NOT QUITE RIGHT SINCE THE ACCELERATIONS SHOULD BE COMPUTED USING TREE METHOD...
+#     f2body_i = mass[idx1] * pytreegrav.AccelTarget(np.atleast_2d(pos[idx1]), np.atleast_2d(pos[idx2]),
+#                                                np.atleast_1d(mass[idx2]),
+#                                                softening_target=np.atleast_1d(soft[idx1]),
+#                                                softening_source=np.atleast_1d(soft[idx2]), G=G, method='bruteforce')
+#     com_accel = (mass[idx1] * accel[idx1] + np.sum(mass[idx2]) * accel[idx2]) / (mass[idx1] + np.sum(mass[idx2]))
+#     ##Safeguard for rounding error??
+#     f_tides = mass[idx1] * (accel[idx1] - com_accel) - f2body_i
+#
+#     ##Set tides factor automatically based on the inclination of the binary?? Check literature...
+#     tidal_crit = (np.linalg.norm(f_tides) < tides_factor * np.linalg.norm(f2body_i))
+#     com_pos = np.average(pos[idx2], weights=mass[idx2], axis=0)
+#     ##Compressive tides...
+#     if compress:
+#         compress_check = np.dot(f_tides, com_pos - pos[idx1]) > 0
+#         tidal_crit = tidal_crit or compress_check
+#
+#     return tidal_crit, f_tides/mass[idx1]
 
 def blob_setup(sys1):
     """
@@ -83,10 +83,9 @@ def blob_setup(sys1):
 
     cumul_pos = np.copy([sys1.pos])
     cumul_vel = np.copy([sys1.vel])
-    cumul_accel = np.copy(sys1.accel)
-
     cumul_u = np.zeros(len(cumul_pos))
 
+    com_accel = np.copy(sys1.accel)
     com_masses = sys1.mass
     com_pos = np.copy(sys1.pos)
     com_vel = np.copy(sys1.vel)
@@ -96,7 +95,7 @@ def blob_setup(sys1):
             'cumul_soft': cumul_soft,
             'cumul_vel': cumul_vel,
             'cumul_u': cumul_u,
-            'cumul_accel': cumul_accel,
+            'com_accel': com_accel,
             'com_masses': com_masses,
             'com_pos': com_pos,
             'com_vel': com_vel}
@@ -111,13 +110,13 @@ def add_to_blob(blob, gas_data, idx):
     xuniq1, vuniq1, muniq1, huniq1, uuniq1, accel_gas1 = gas_data
 
     ##This is really the com_accel: Rename to keep the pattern
-    blob['cumul_accel'] = (blob['com_masses'] * blob['cumul_accel'] + muniq1[idx] * accel_gas1[idx]) /\
-                          (muniq1[idx] + blob['com_masses'])
     blob['cumul_masses'] = np.append(blob['cumul_masses'], muniq1[idx])
     blob['cumul_u'] = np.append(blob['cumul_u'], uuniq1[idx])
     blob['cumul_pos'] = np.vstack([blob['cumul_pos'], xuniq1[idx]])
     blob['cumul_vel'] = np.vstack([blob['cumul_vel'], vuniq1[idx]])
     blob['cumul_soft'] = np.append(blob['cumul_soft'], huniq1[idx])
+    blob['com_accel'] = (blob['com_masses'] * blob['com_accel'] + muniq1[idx] * accel_gas1[idx]) /\
+                          (muniq1[idx] + blob['com_masses'])
     blob['com_masses'] = np.sum(blob['cumul_masses'])
     blob['com_pos'] = np.average(blob['cumul_pos'], weights=blob['cumul_masses'], axis=0)
     blob['com_vel'] = np.average(blob['cumul_vel'], weights=blob['cumul_masses'], axis=0)
@@ -173,12 +172,11 @@ def get_gas_mass_bound_refactor(sys1, gas_data, sinkpos, G=4.301e3, cutoff=0.5, 
                  np.vstack([blob['com_vel'], vuniq1[idx]]), np.append(0, uuniq1[idx]))
 
         ##Could refactor this part
-        tmp_pos = [xuniq1[idx], blob['cumul_pos']]
-        tmp_mass = [muniq1[idx], blob['cumul_masses']]
-        tmp_soft = [huniq1[idx], blob['cumul_soft']]
-        tmp_accel = [accel_gas1[idx], blob['cumul_accel']]
-        tide_crit = check_tides_gen(tmp_pos, tmp_mass, tmp_accel, tmp_soft, 0, 1, G, compress=compress,
-                                    tides_factor=tides_factor)
+        tmp_sys1 = find_multiples_new2.system(xuniq1[idx], vuniq1[idx], muniq1[idx],
+                                              huniq1[idx], 0, accel_gas1[idx], 0, pos_to_spos=True)
+        tmp_sys2 = find_multiples_new2.system(blob['cumul_pos'], blob['cumul_vel'], blob['cumul_masses'],
+                                                blob['cumul_soft'], 0, blob['com_accel'], 0, pos_to_spos=True)
+        tide_crit, at1 = find_multiples_new2.check_tides_sys(tmp_sys1, tmp_sys2, G=G, compress=compress, tides_factor=tides_factor)
 
         if (pe1 + ke1 < 0) and (tide_crit):
             if non_pair:
@@ -198,6 +196,7 @@ def main():
     ##Fix GN from the simulation data rather than hard-coding...
     parser = argparse.ArgumentParser(description="Parse starforge snapshot, and get multiple data.")
     parser.add_argument("snap", help="Index of snapshot to read")
+    parser.add_argument("--snap_base", default="snapshot", help="First part of snapshot name")
     parser.add_argument("--non_pair", action="store_true", help="Flag to turn on non-pairwise algorithm")
     parser.add_argument("--compress", action="store_true", help="Filter out compressive tidal forces")
     parser.add_argument("--tides_factor", type=float, default=8.0, help="Prefactor for check of tidal criterion (8.0)")
@@ -209,7 +208,8 @@ def main():
     cutoff = args.cutoff
     non_pair = args.non_pair
 
-    snap_file = 'snapshot_{0}.hdf5'.format(snap_idx)
+    snap_file = args.snap_base + '_{0}.hdf5'.format(snap_idx)
+
     den, x, m, h, u, b, v, t, fmol, fneu, partpos, partmasses, partvels, partids, partsink, tcgs, unit_base =\
     find_multiples_new2.load_data(snap_file, res_limit=1e-3)
     GN = 6.672e-8 * (unit_base['UnitVel'] ** 2. * unit_base['UnitLength'] / (unit_base['UnitMass'])) ** -1.
@@ -248,11 +248,13 @@ def main():
                                              theta=0.5, G=GN, method="tree")
     accel_stars_stars = pytreegrav.Accel(partpos, partmasses, partsink, G=GN, method="bruteforce")
     accel_stars = accel_stars_gas + accel_stars_stars
+    # accel_gas = np.genfromtxt("accel_gas_{0}".format(snap_idx))
+    # accel_stars = np.genfromtxt("accel_stars_{0}".format(snap_idx))
 
     halo_masses_sing = np.zeros(len(partpos))
     max_dist_sing = np.zeros(len(partpos))
     ids_sing = np.zeros(len(partpos))
-    gas_dat_h5 = h5py.File("gas_halo_data/halo_masses_sing_{0}_np{1}_c{2}_comp{3}_tf{4}.hdf5".format(snap_idx, non_pair, cutoff, args.compress,
+    gas_dat_h5 = h5py.File("halo_masses_sing_{0}_np{1}_c{2}_comp{3}_tf{4}.hdf5".format(snap_idx, non_pair, cutoff, args.compress,
                                                                                args.tides_factor), 'a')
     for ii, pp in enumerate(partpos):
         sys_tmp = find_multiples_new2.system(partpos[ii], partvels[ii], partmasses[ii], partsink[ii], partids[ii], accel_stars[ii], 0)
@@ -266,7 +268,7 @@ def main():
 
 
     gas_dat_h5.close()
-    output_file ="gas_halo_data/halo_masses_sing_{0}_np{1}_c{2}_comp{3}_tf{4}".format(snap_idx, non_pair, cutoff, args.compress,
+    output_file ="halo_masses_sing_{0}_np{1}_c{2}_comp{3}_tf{4}".format(snap_idx, non_pair, cutoff, args.compress,
                                                                          args.tides_factor)
     np.savetxt(output_file, np.transpose((halo_masses_sing, ids_sing, max_dist_sing)))
 
