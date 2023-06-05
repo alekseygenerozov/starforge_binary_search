@@ -192,7 +192,7 @@ def check_tides_sys(sys1, sys2, G):
     ##Difference acceleration of system and com acceleration of com ##How do we want to order the subtraction?
     a_tides = (sys1.accel - com_accel) - a_internal_com
     ##Tidal criterion
-    tidal_crit = (np.linalg.norm(a_tides) < 2. * np.linalg.norm(a_internal_com))
+    tidal_crit = (np.linalg.norm(a_tides) < 8. * np.linalg.norm(a_internal_com))
     ##Check if tides are actually destructive
     compress = np.dot(a_tides, sys2.pos - sys1.pos) > 0
 
@@ -533,7 +533,7 @@ class cluster(object):
         The entries corresponding to these stars in orb_all should then be deleted.
         """
 
-        regionIDs = np.unique(self.orb_all[ii][:, -2].astype(int).ravel())
+        regionIDs = np.unique(self.orb_all[ii][:, -2:].astype(int).ravel())
         sysIDs = self.get_system_ids_b
         regionIDs = regionIDs[np.isin(regionIDs, sysIDs)]
         pos = self.get_system_position
