@@ -134,6 +134,9 @@ def get_gas_mass_bound_refactor(sys1, gas_data, sinkpos, G=4.301e3, cutoff=0.5, 
     :param float G: Gravitational constant
     :param float cutoff: Distance up to which we look for bound gas
     :param bool non_pair: Flag to include non-pairwise interactions.
+    :param bool compress: Whether to filter out compressive tidal forces (False).
+    :param float tides_factor: Prefactor to use in comparison of tidal criterion.
+
     """
     blob = blob_setup(sys1)
     xuniq1, vuniq1, muniq1, huniq1, uuniq1, accel_gas1 = gas_data
@@ -249,7 +252,7 @@ def main():
     halo_masses_sing = np.zeros(len(partpos))
     max_dist_sing = np.zeros(len(partpos))
     ids_sing = np.zeros(len(partpos))
-    gas_dat_h5 = h5py.File("halo_masses_sing_{0}_np{1}_c{2}_comp{3}_tf{4}.hdf5".format(snap_idx, non_pair, cutoff, args.compress,
+    gas_dat_h5 = h5py.File("gas_halo_data/halo_masses_sing_{0}_np{1}_c{2}_comp{3}_tf{4}.hdf5".format(snap_idx, non_pair, cutoff, args.compress,
                                                                                args.tides_factor), 'a')
     for ii, pp in enumerate(partpos):
         sys_tmp = find_multiples_new2.system(partpos[ii], partvels[ii], partmasses[ii], partsink[ii], partids[ii], accel_stars[ii], 0)
