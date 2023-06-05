@@ -195,7 +195,7 @@ def check_tides_sys(sys1, sys2, G, tides_factor=8, compress=False):
     tidal_crit = (np.linalg.norm(a_tides) < tides_factor * np.linalg.norm(a_internal_com))
     ##Check if tides are actually destructive
     if compress:
-        compress_check = np.dot(f_tides, com_pos - pos[idx1]) > 0
+        compress_check = np.dot(a_tides, sys2.pos - sys1.pos) > 0
         tidal_crit = tidal_crit or compress_check
 
     return (tidal_crit or compress), a_tides
@@ -600,13 +600,15 @@ def main():
     cl = cluster(partpos, partvels, partmasses, partsink, partids, accel_stars + accel_gas,
                  sma_order=sma_order, mult_max=args.mult_max, Ngrid1D=args.ngrid, tides_factor=args.tides_factor, compress=args.compress)
     with open("testing_" + snapshot_file.replace(".hdf5", "")+"_TidesTrue" +
-              "_smaOrder{0}_mult{1}_ngrid{2}_hm{3}".format(sma_order, args.mult_max, args.ngrid, len(args.halo_mass_file) > 0) + ".p", "wb") as ff:
+              "_smao{0}_mult{1}_ngrid{2}_hm{3}_ft{4}_co{5}".format(sma_order, args.mult_max, args.ngrid,
+                                                                   len(args.halo_mass_file) > 0, args.tides_factor, args.compress) + ".p", "wb") as ff:
         pickle.dump(cl, ff)
 
     cl = cluster(partpos, partvels, partmasses, partsink, partids, accel_stars + accel_gas, tides=False,
                  sma_order=sma_order, mult_max=args.mult_max, Ngrid1D=args.ngrid, tides_factor=args.tides_factor, compress=args.compress)
     with open("testing_" + snapshot_file.replace(".hdf5", "")+"_TidesFalse" +
-              "_smaOrder{0}_mult{1}_ngrid{2}_hm{3}".format(sma_order, args.mult_max, args.ngrid, len(args.halo_mass_file) > 0) +".p", "wb") as ff:
+              "_smao{0}_mult{1}_ngrid{2}_hm{3}_ft{4}_co{5}".format(sma_order, args.mult_max, args.ngrid,
+                                                           len(args.halo_mass_file) > 0,  args.tides_factor, args.compress) +".p", "wb") as ff:
         pickle.dump(cl, ff)
 
 
