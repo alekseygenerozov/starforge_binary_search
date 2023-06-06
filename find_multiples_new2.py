@@ -34,7 +34,7 @@ def load_data(file, res_limit=0.0):
     u = f['PartType0']['InternalEnergy'][:] * mask
     v = f['PartType0']['Velocities'] * mask3d
     b = f['PartType0']['MagneticField'][:] * mask3d
-    t = f['PartType0']['Temperature'][:] * mask
+    #t = f['PartType0']['Temperature'][:] * mask
     # Fraction of molecular material in each cell
     fmol = f['PartType0']['MolecularMassFraction'][:] * mask
     # To get molecular gas density do: den*fmol*fneu*(1-helium_mass_fraction)/(2.0*mh), helium_mass_fraction=0.284
@@ -68,7 +68,7 @@ def load_data(file, res_limit=0.0):
     print("Snapshot time in %f Myr" % (tcgs))
 
     del f
-    return den, x, m, h, u, b, v, t, fmol, fneu, partpos, partmasses, partvels, partids, partsink, tcgs, unit_base
+    return den, x, m, h, u, b, v, fmol, fneu, partpos, partmasses, partvels, partids, partsink, tcgs, unit_base
 
 def PE(xc, mc, hc, G=4.301e3):
     """ xc - array of positions
@@ -576,7 +576,7 @@ def main():
     sma_order = args.sma_order
     # den, x, m, h, u, b, v, t, fmol, fneu, partpos, partmasses, partvels, partids, tcgs, unit_base = load_data(snapshot_file, res_limit=1e-3)
     # cl = cluster(partpos, partvels, partmasses, partids)
-    den, x, m, h, u, b, v, t, fmol, fneu, partpos, partmasses, partvels, partids, partsink, tcgs, unit_base = load_data(snapshot_file, res_limit=1e-3)
+    den, x, m, h, u, b, v, fmol, fneu, partpos, partmasses, partvels, partids, partsink, tcgs, unit_base = load_data(snapshot_file, res_limit=1e-3)
     ##TO DO: UPDATE ONCE WE HAVE METHOD TO STORE HALO DATA.
     halo_masses = np.zeros(len(partmasses))
     if args.halo_mass_file:
