@@ -178,12 +178,21 @@ def classify_binaries(r1, r2, bin_ids, first_snapshots):
         ##Check multiplicity of stars in the previous snapshotor subsequent analysis we only want to consider stars that existed in both snapshots--Not
         ##sure how to deal with this case perhaps we should add it a third "ambiguous" category
         tmp_mults = np.zeros(len(pp))
+        ws = np.zeros(len(pp))
         for jj, ppp in enumerate(pp):
             w1 = np.where([np.in1d(ppp, row) for row in ids_b])
+            ws[jj] = w1[0][0]
             tmp_mults[jj] = len(ids_b[w1[0][0]])
         ##If all of the multiple stars were singles, we consider a capture to have occured
         if np.all(tmp_mults == 1):
             bin_class[ii] = 'c'
+            continue
+        w_unique = np.unique(ws)
+        if len(w_unique) == 1:
+            bin_class[ii] = 'diss'
+            continue
+        bin_class[ii] = 'ex'
+
 
     return bin_class
 
