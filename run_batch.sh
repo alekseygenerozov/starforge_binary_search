@@ -5,7 +5,7 @@
 #SBATCH --error=job.%J.err.txt
 #SBATCH --partition=all
 #SBATCH --nodes=1
-#SBATCH --ntasks=1             
+#SBATCH --ntasks=NTASKS
 
 #SBATCH --time=2-00:00:00
 
