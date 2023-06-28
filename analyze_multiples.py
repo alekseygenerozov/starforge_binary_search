@@ -61,7 +61,9 @@ def get_fate(r1, r2, row, ss):
             return 'i'
         elif len(ids_a[idx1]) > 1 and len(ids_a[idx2]) > 1:
             return 'mm'
-        elif (len(ids_a[idx1]) == 1 and len(ids_a[idx2]) > 1) or (len(ids_a[idx1]) > 1 and len(ids_a[idx2]) == 1):
+        elif (len(ids_a[idx1]) == 1 and len(ids_a[idx2]) == 2) or (len(ids_a[idx1]) == 2 and len(ids_a[idx2]) == 1):
+            return 'bs'
+        elif (len(ids_a[idx1]) == 1 and len(ids_a[idx2]) > 2) or (len(ids_a[idx1]) > 2 and len(ids_a[idx2]) == 1):
             return 'ms'
 
 # def get_binary_lifetime(r1, r2, row, first_appearance, end_snap):
@@ -227,14 +229,14 @@ def create_sys_lookup_table(r1, r2, start_snap, end_snap):
 
 def main():
     base = "/home/aleksey/Dropbox/projects/Hagai_projects/star_forge/big_cloud_data/"
-    base_sink = base + "/sink_data/_M2e4_R10_sink_files/M2e4_R10_S0_T1_B1_Res271_n2_sol0.5_42_snapshot_"
+    # base_sink = base + "/sink_data/_M2e4_R10_sink_files/M2e4_R10_S0_T1_B1_Res271_n2_sol0.5_42_snapshot_"
     r1 = "/home/aleksey/Dropbox/projects/Hagai_projects/star_forge/big_cloud_data/_M2e4_TidesTrue/M2e4_R10_S0_T1_B1_Res271_n2_sol0.5_42_snapshot_"
     r2 = "_TidesTrue_smaOrderFalse_mult4.p"
-    snaps = glob.glob(
-        "/home/aleksey/Dropbox/projects/Hagai_projects/star_forge/big_cloud_data/_M2e4_TidesTrue/*snapshot*")
-    snaps = [ss.replace(r1, "") for ss in snaps]
-    snaps = [ss.replace(r2, "") for ss in snaps]
-    snaps = np.sort(np.array(snaps).astype(int))
+    # snaps = glob.glob(
+    #     "/home/aleksey/Dropbox/projects/Hagai_projects/star_forge/big_cloud_data/_M2e4_TidesTrue/*snapshot*")
+    # snaps = [ss.replace(r1, "") for ss in snaps]
+    # snaps = [ss.replace(r2, "") for ss in snaps]
+    # snaps = np.sort(np.array(snaps).astype(int))
 
     start_snap = 77
     end_snap = 723
@@ -250,6 +252,8 @@ def main():
         bin_ids, ic, bin_ids_all, times_all = get_unique_binaries(r1, r2, start_snap, end_snap)
         np.savez(base + "/analyze_multiples_output/unique_bin_ids", bin_ids)
         np.savez(base + "/analyze_multiples_output/ic", ic)
+        np.savez(base + "/analyze_multiples_output/bin_ids_all", bin_ids_all)
+        np.savez(base + "/analyze_multiples_output/times_all", times_all)
 
     first_snapshots = ic[:, 0].astype(int)
 

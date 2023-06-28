@@ -15,4 +15,4 @@ print(start, end)
 for ii in range(start, end, 1):
 	bash_command("python halo_masses_single_double.py --non_pair --compress --snap_base {0}  {1}".format(snap_base, ii))
 	bash_command("python find_multiples_new2.py --halo_mass_file halo_masses_sing_{1}_npTrue_c0.5_compTrue_tf8.0 --compress --ngrid 4 --snap_base {0} {1}".format(snap_base, ii))
-	bash_command("python find_multiples_new2.py --compress --ngrid 4 --snap_base {0} {1}".format(snap_base, ii)
+	bash_command("python find_multiples_new2.py --compress --ngrid 4 --snap_base {0} {1}".format(snap_base, ii))

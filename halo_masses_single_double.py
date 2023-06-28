@@ -192,6 +192,17 @@ def get_gas_mass_bound_refactor(sys1, gas_data, sinkpos, G=4.301e3, cutoff=0.5, 
     halo_mass_bins = np.cumsum(halo_mass_bins)
     return halo_mass, d_max, bound_index, .5 * (rad_bins[:-1] + rad_bins[1:]), halo_mass_bins[1:]
 
+def get_mass_bound_manager(ii, part_data, gas_data, halo_masses_sing,
+                         max_dist_sink, gas_dat_h5, **kwargs):
+    partpos, partvels, partmasses, partsink, partids, accel_stars = part_data
+    sys_tmp = find_multiples_new2.system(partpos[ii], partvels[ii], partmasses[ii], partsink[ii], partids[ii],
+                                         accel_stars[ii], 0)
+    res = get_gas_mass_bound_refactor(sys_tmp, gas_data, partpos, **kwargs)
+    halo_masses_sing[ii], max_dist_sink[ii], bound_index, rad_bins, halo_mass_bins = res
+
+    gas_dat_h5.create_dataset("halo_{0}".format(partids[ii]), data=np.transpose((rad_bins, halo_mass_bins)))
+
+
 def main():
     ##Fix GN from the simulation data rather than hard-coding...
     parser = argparse.ArgumentParser(description="Parse starforge snapshot, and get multiple data.")
@@ -256,16 +267,11 @@ def main():
     ids_sing = np.zeros(len(partpos))
     gas_dat_h5 = h5py.File("halo_masses_sing_{0}_np{1}_c{2}_comp{3}_tf{4}.hdf5".format(snap_idx, non_pair, cutoff, args.compress,
                                                                                args.tides_factor), 'a')
+    gas_data = (xuniq, vuniq, muniq, huniq, uuniq, accel_gas)
+    part_data = (partpos, partvels, partmasses, partsink, partids, accel_stars)
     for ii, pp in enumerate(partpos):
-        sys_tmp = find_multiples_new2.system(partpos[ii], partvels[ii], partmasses[ii], partsink[ii], partids[ii], accel_stars[ii], 0)
-        gas_data = (xuniq, vuniq, muniq, huniq, uuniq, accel_gas)
-        ##Mass bound
-        halo_masses_sing[ii], max_dist_sing[ii], bound_index, rad_bins, halo_mass_bins = get_gas_mass_bound_refactor(sys_tmp, gas_data, partpos,
-                                                                                            G=GN, cutoff=cutoff, non_pair=non_pair,
-                                                                                            compress=args.compress, tides_factor=args.tides_factor)
-        ids_sing[ii] = partids[ii]
-        gas_dat_h5.create_dataset("halo_{0}".format(partids[ii]), data=np.transpose((rad_bins, halo_mass_bins)))
-
+        get_mass_bound_manager(ii, part_data, gas_data, halo_masses_sing, max_dist_sing, gas_dat_h5,
+                             G=GN, cutoff=cutoff, non_pair=non_pair, compress=args.compress, tides_factor=args.tides_factor)
 
     gas_dat_h5.close()
     output_file ="halo_masses_sing_{0}_np{1}_c{2}_comp{3}_tf{4}".format(snap_idx, non_pair, cutoff, args.compress,
