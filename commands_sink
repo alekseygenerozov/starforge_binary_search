@@ -1,0 +1,21 @@
+for ii in {100..500..10}; do python sink_data.py /scratch3/03532/mgrudic/STARFORGE_RT/production2/M2e4_R10/M2e4_R10_S0_T1_B0.1_Res271_n2_sol0.5_42/output/snapshot\_$ii.hdf5 --tag=M2e4_R10_S0_T1_B0.1_Res271_n2_sol0.5_42; done
+
+for ii in {101..500..10}; do python sink_data.py /scratch3/03532/mgrudic/STARFORGE_RT/production2/M2e4_R10/M2e4_R10_S0_T1_B0.1_Res271_n2_sol0.5_42/output/snapshot\_$ii.hdf5 --tag=M2e4_R10_S0_T1_B0.1_Res271_n2_sol0.5_42; done
+
+for ii in {102..500..10}; do python sink_data.py /scratch3/03532/mgrudic/STARFORGE_RT/production2/M2e4_R10/M2e4_R10_S0_T1_B0.1_Res271_n2_sol0.5_42/output/snapshot\_$ii.hdf5 --tag=M2e4_R10_S0_T1_B0.1_Res271_n2_sol0.5_42; done
+
+for ii in {103..500..10}; do python sink_data.py /scratch3/03532/mgrudic/STARFORGE_RT/production2/M2e4_R10/M2e4_R10_S0_T1_B0.1_Res271_n2_sol0.5_42/output/snapshot\_$ii.hdf5 --tag=M2e4_R10_S0_T1_B0.1_Res271_n2_sol0.5_42; done
+
+for ii in {104..500..10}; do python sink_data.py /scratch3/03532/mgrudic/STARFORGE_RT/production2/M2e4_R10/M2e4_R10_S0_T1_B0.1_Res271_n2_sol0.5_42/output/snapshot\_$ii.hdf5 --tag=M2e4_R10_S0_T1_B0.1_Res271_n2_sol0.5_42; done
+
+for ii in {105..500..10}; do python sink_data.py /scratch3/03532/mgrudic/STARFORGE_RT/production2/M2e4_R10/M2e4_R10_S0_T1_B0.1_Res271_n2_sol0.5_42/output/snapshot\_$ii.hdf5 --tag=M2e4_R10_S0_T1_B0.1_Res271_n2_sol0.5_42; done
+
+for ii in {106..500..10}; do python sink_data.py /scratch3/03532/mgrudic/STARFORGE_RT/production2/M2e4_R10/M2e4_R10_S0_T1_B0.1_Res271_n2_sol0.5_42/output/snapshot\_$ii.hdf5 --tag=M2e4_R10_S0_T1_B0.1_Res271_n2_sol0.5_42; done
+
+for ii in {107..500..10}; do python sink_data.py /scratch3/03532/mgrudic/STARFORGE_RT/production2/M2e4_R10/M2e4_R10_S0_T1_B0.1_Res271_n2_sol0.5_42/output/snapshot\_$ii.hdf5 --tag=M2e4_R10_S0_T1_B0.1_Res271_n2_sol0.5_42; done
+
+for ii in {108..500..10}; do python sink_data.py /scratch3/03532/mgrudic/STARFORGE_RT/production2/M2e4_R10/M2e4_R10_S0_T1_B0.1_Res271_n2_sol0.5_42/output/snapshot\_$ii.hdf5 --tag=M2e4_R10_S0_T1_B0.1_Res271_n2_sol0.5_42; done
+
+for ii in {109..500..10}; do python sink_data.py /scratch3/03532/mgrudic/STARFORGE_RT/production2/M2e4_R10/M2e4_R10_S0_T1_B0.1_Res271_n2_sol0.5_42/output/snapshot\_$ii.hdf5 --tag=M2e4_R10_S0_T1_B0.1_Res271_n2_sol0.5_42; done
+
+#for ii in {61..101..10}; do python sink_data.py /scratch3/03532/mgrudic/STARFORGE_RT/production2/M2e4_R10/M2e4_R10_S0_T1_B1_Res271_n2_sol0.5_42/output/snapshot\_$ii.hdf5 --tag=M2e4_R10_S0_T1_B1_Res271_n2_sol0.5_42; done
