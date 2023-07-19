@@ -46,12 +46,14 @@ def load_data(file, res_limit=0.0):
         partvels = f['PartType5']['Velocities'][:]
         partids = f['PartType5']['ParticleIDs'][:]
         partsink = (f['PartType5']['SinkRadius'][:])
+        partspin = (f['PartType5']['BH_Specific_AngMom'][:])
     else:
         partpos = []
         partmasses = [0]
         partids = []
         partvels = [0, 0, 0]
         partsink = []
+        partspin = []
 
     time = f['Header'].attrs['Time']
     unitlen = f['Header'].attrs['UnitLength_In_CGS']
@@ -68,14 +70,16 @@ def load_data(file, res_limit=0.0):
     print("Snapshot time in %f Myr" % (tcgs))
 
     del f
-    return den, x, m, h, u, b, v, t, fmol, fneu, partpos, partmasses, partvels, partids, partsink, tcgs, unit_base
+    return den, x, m, h, u, b, v, t, fmol, fneu, partpos, partmasses, partvels, partids, partsink, tcgs, unit_base, \
+        partspin
 
 def main():
     parser = argparse.ArgumentParser(description="Parse starforge snapshot, and get multiple data.")
     parser.add_argument("snap", help="Name of snapshot to read")
     args = parser.parse_args()
 
-    den, x, m, h, u, b, v, t, fmol, fneu, partpos, partmasses, partvels, partids, partsink, tcgs, unit_base = load_data(args.snap)
+    den, x, m, h, u, b, v, t, fmol, fneu, partpos, partmasses, partvels, partids, partsink, tcgs, unit_base, partspin\
+        = load_data(args.snap)
 
     nsinks = len(partpos)
     partids.shape = (nsinks, -1)
@@ -83,6 +87,8 @@ def main():
     partmasses.shape = (nsinks, -1)
 
     np.savetxt(args.snap.replace(".hdf5", ".sink"), np.hstack((partids, partpos, partvels, partsink, partmasses)))
+    np.savetxt(args.snap.replace(".hdf5", ".spin"), partspin)
+
 
 
 if __name__ == "__main__":

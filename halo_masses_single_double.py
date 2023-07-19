@@ -9,6 +9,8 @@ import pytreegrav
 # import progressbar
 import argparse
 import h5py
+import multiprocessing
+import functools
 
 def PE(xc, mc, hc, G=4.301e3):
     """ xc - array of positions
@@ -192,6 +194,18 @@ def get_gas_mass_bound_refactor(sys1, gas_data, sinkpos, G=4.301e3, cutoff=0.5, 
     halo_mass_bins = np.cumsum(halo_mass_bins)
     return halo_mass, d_max, bound_index, .5 * (rad_bins[:-1] + rad_bins[1:]), halo_mass_bins[1:]
 
+
+
+
+def get_mass_bound_manager(part_data, gas_data, ii, **kwargs):
+    partpos, partvels, partmasses, partsink, partids, accel_stars = part_data
+    sys_tmp = find_multiples_new2.system(partpos[ii], partvels[ii], partmasses[ii], partsink[ii], partids[ii],
+                                         accel_stars[ii], 0)
+    res = get_gas_mass_bound_refactor(sys_tmp, gas_data, partpos, **kwargs)
+    halo_mass, max_dist, bound_index, rad_bins, halo_mass_bins = res
+
+    return halo_mass, max_dist, np.transpose((rad_bins, halo_mass_bins))
+
 def main():
     ##Fix GN from the simulation data rather than hard-coding...
     parser = argparse.ArgumentParser(description="Parse starforge snapshot, and get multiple data.")
@@ -253,24 +267,21 @@ def main():
 
     halo_masses_sing = np.zeros(len(partpos))
     max_dist_sing = np.zeros(len(partpos))
-    ids_sing = np.zeros(len(partpos))
     gas_dat_h5 = h5py.File("halo_masses_sing_{0}_np{1}_c{2}_comp{3}_tf{4}.hdf5".format(snap_idx, non_pair, cutoff, args.compress,
                                                                                args.tides_factor), 'a')
-    for ii, pp in enumerate(partpos):
-        sys_tmp = find_multiples_new2.system(partpos[ii], partvels[ii], partmasses[ii], partsink[ii], partids[ii], accel_stars[ii], 0)
-        gas_data = (xuniq, vuniq, muniq, huniq, uuniq, accel_gas)
-        ##Mass bound
-        halo_masses_sing[ii], max_dist_sing[ii], bound_index, rad_bins, halo_mass_bins = get_gas_mass_bound_refactor(sys_tmp, gas_data, partpos,
-                                                                                            G=GN, cutoff=cutoff, non_pair=non_pair,
-                                                                                            compress=args.compress, tides_factor=args.tides_factor)
-        ids_sing[ii] = partids[ii]
-        gas_dat_h5.create_dataset("halo_{0}".format(partids[ii]), data=np.transpose((rad_bins, halo_mass_bins)))
-
+    gas_data = (xuniq, vuniq, muniq, huniq, uuniq, accel_gas)
+    part_data = (partpos, partvels, partmasses, partsink, partids, accel_stars)
+    f_to_iter = functools.partial(get_mass_bound_manager, part_data, gas_data,
+                      G=GN, cutoff=cutoff, non_pair=non_pair, compress=args.compress, tides_factor=args.tides_factor)
+    with multiprocessing.Pool(NTASKS) as pool:
+        for ii, halo_dat_full in enumerate(pool.map(f_to_iter, range(len(halo_masses_sing)))):
+            halo_masses_sing[ii], max_dist_sing[ii], halo_dat = halo_dat_full
+            gas_dat_h5.create_dataset("halo_{0}".format(partids[ii]), data=halo_dat)
 
     gas_dat_h5.close()
     output_file ="halo_masses_sing_{0}_np{1}_c{2}_comp{3}_tf{4}".format(snap_idx, non_pair, cutoff, args.compress,
                                                                          args.tides_factor)
-    np.savetxt(output_file, np.transpose((halo_masses_sing, ids_sing, max_dist_sing)))
+    np.savetxt(output_file, np.transpose((halo_masses_sing, partids, max_dist_sing)))
 
 
 if __name__ == "__main__":
