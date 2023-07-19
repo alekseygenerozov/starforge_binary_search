@@ -563,6 +563,7 @@ def main():
     parser = argparse.ArgumentParser(description="Parse starforge snapshot, and get multiple data.")
     parser.add_argument("snap", help="Snapshot index")
     parser.add_argument("--snap_base", default="snapshot", help="First part of snapshot name")
+    parser.add_argument("--name_tag", default="M2e4", help="Extension for saving.")
     parser.add_argument("--sma_order", action="store_true", help="Assemble hierarchy by sma instead of binding energy")
     parser.add_argument("--halo_mass_file", default="", help="Name of file containing gas halo mass around sink particles")
     parser.add_argument("--mult_max", type=int, default=4, help="Multiplicity cut (4).")
@@ -574,6 +575,9 @@ def main():
 
     snapshot_file = args.snap_base + '_{0}.hdf5'.format(args.snap)
     sma_order = args.sma_order
+    name_tag = args.name_tag
+    snapshot_num = snapshot_file[-8:-5].replace("_","") # File number
+
     # den, x, m, h, u, b, v, t, fmol, fneu, partpos, partmasses, partvels, partids, tcgs, unit_base = load_data(snapshot_file, res_limit=1e-3)
     # cl = cluster(partpos, partvels, partmasses, partids)
     den, x, m, h, u, b, v, fmol, fneu, partpos, partmasses, partvels, partids, partsink, tcgs, unit_base = load_data(snapshot_file, res_limit=1e-3)
@@ -601,14 +605,13 @@ def main():
     #
     cl = cluster(partpos, partvels, partmasses, partsink, partids, accel_stars + accel_gas,
                  sma_order=sma_order, mult_max=args.mult_max, Ngrid1D=args.ngrid, tides_factor=args.tides_factor, compress=args.compress)
-    with open(snapshot_file.replace(".hdf5", "")+"_TidesTrue" +
-              "_smao{0}_mult{1}_ngrid{2}_hm{3}_ft{4}_co{5}".format(sma_order, args.mult_max, args.ngrid,
-                                                                   len(args.halo_mass_file) > 0, args.tides_factor, args.compress) + ".p", "wb") as ff:
+    with open(name_tag+"_snapshot_"+snapshot_num+"_TidesTrue" +
+              "_smao{0}_mult{1}_ngrid{2}_hm{3}_ft{4}_co{5}".format(sma_order, args.mult_max, args.ngrid, len(args.halo_mass_file) > 0, args.tides_factor, args.compress) + ".p", "wb") as ff:
         pickle.dump(cl, ff)
 
     cl = cluster(partpos, partvels, partmasses, partsink, partids, accel_stars + accel_gas, tides=False,
                  sma_order=sma_order, mult_max=args.mult_max, Ngrid1D=args.ngrid, tides_factor=args.tides_factor, compress=args.compress)
-    with open(snapshot_file.replace(".hdf5", "")+"_TidesFalse" +
+    with open(name_tag +"_snapshot_"+snapshot_num+"_TidesFalse" +
               "_smao{0}_mult{1}_ngrid{2}_hm{3}_ft{4}_co{5}".format(sma_order, args.mult_max, args.ngrid,
                                                            len(args.halo_mass_file) > 0,  args.tides_factor, args.compress) +".p", "wb") as ff:
         pickle.dump(cl, ff)
