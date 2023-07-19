@@ -2,7 +2,6 @@ import numpy as np
 import h5py
 from itertools import combinations
 import pickle
-import pytreegrav
 import argparse
 
 import warnings
@@ -34,7 +33,7 @@ def load_data(file, res_limit=0.0):
     u = f['PartType0']['InternalEnergy'][:] * mask
     v = f['PartType0']['Velocities'] * mask3d
     b = f['PartType0']['MagneticField'][:] * mask3d
-    t = f['PartType0']['Temperature'][:] * mask
+    #t = f['PartType0']['Temperature'][:] * mask
     # Fraction of molecular material in each cell
     fmol = f['PartType0']['MolecularMassFraction'][:] * mask
     # To get molecular gas density do: den*fmol*fneu*(1-helium_mass_fraction)/(2.0*mh), helium_mass_fraction=0.284
@@ -70,15 +69,18 @@ def load_data(file, res_limit=0.0):
     print("Snapshot time in %f Myr" % (tcgs))
 
     del f
-    return den, x, m, h, u, b, v, t, fmol, fneu, partpos, partmasses, partvels, partids, partsink, tcgs, unit_base, \
+    return den, x, m, h, u, b, v, fmol, fneu, partpos, partmasses, partvels, partids, partsink, tcgs, unit_base, \
         partspin
 
 def main():
     parser = argparse.ArgumentParser(description="Parse starforge snapshot, and get multiple data.")
     parser.add_argument("snap", help="Name of snapshot to read")
+    parser.add_argument("--tag", default="M2e4", help="Extension for saving.")
     args = parser.parse_args()
+    name_tag = args.tag
+    snapshot_num = args.snap[-8:-5].replace("_","") # File number
 
-    den, x, m, h, u, b, v, t, fmol, fneu, partpos, partmasses, partvels, partids, partsink, tcgs, unit_base, partspin\
+    den, x, m, h, u, b, v, fmol, fneu, partpos, partmasses, partvels, partids, partsink, tcgs, unit_base, partspin\
         = load_data(args.snap)
 
     nsinks = len(partpos)
@@ -86,10 +88,8 @@ def main():
     partsink.shape = (nsinks, -1)
     partmasses.shape = (nsinks, -1)
 
-    np.savetxt(args.snap.replace(".hdf5", ".sink"), np.hstack((partids, partpos, partvels, partsink, partmasses)))
-    np.savetxt(args.snap.replace(".hdf5", ".spin"), partspin)
-
-
+    np.savetxt(name_tag+"_snapshot_"+snapshot_num+".sink" , np.hstack((partids, partpos, partvels, partsink, partmasses)))
+    np.savetxt(name_tag+"_snapshot_"+snapshot_num+".spin", partspin)
 
 if __name__ == "__main__":
     main()
