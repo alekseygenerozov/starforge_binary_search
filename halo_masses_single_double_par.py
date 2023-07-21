@@ -11,15 +11,16 @@ import argparse
 import h5py
 import multiprocessing
 import functools
+import starforge_constants as sfc
 
-def PE(xc, mc, hc, G=4.301e3):
+def PE(xc, mc, hc):
     """ xc - array of positions
         mc - array of masses
         hc - array of smoothing lengths
         bc - array of magnetic field strengths
     """
     ## gravitational potential energy
-    phic = pytreegrav.Potential(xc, mc, hc, G=G, theta=0.5, method='bruteforce')  # G in code units
+    phic = pytreegrav.Potential(xc, mc, hc, G=sfc.GN, theta=0.5, method='bruteforce')  # G in code units
     return 0.5 * (phic * mc).sum()
 
 
@@ -125,14 +126,13 @@ def add_to_blob(blob, gas_data, idx):
 
     return blob
 
-def get_gas_mass_bound_refactor(sys1, gas_data, sinkpos, G=4.301e3, cutoff=0.5, non_pair=False, compress=False, tides_factor=8):
+def get_gas_mass_bound_refactor(sys1, gas_data, sinkpos, cutoff=0.5, non_pair=False, compress=False, tides_factor=8):
     """
     Get to gas mass bound to a system. This is meant to be applied to a *single star.*
 
     :param System sys1: System we are interested
     :param tuple gas_data: All the positions, velocities, masses, softening lengths, and accelerations of all gas
     :param Array-like sinkpos: Position of all sinks
-    :param float G: Gravitational constant
     :param float cutoff: Distance up to which we look for bound gas
     :param bool non_pair: Flag to include non-pairwise interactions.
     :param bool compress: Whether to filter out compressive tidal forces (False).
@@ -162,14 +162,14 @@ def get_gas_mass_bound_refactor(sys1, gas_data, sinkpos, G=4.301e3, cutoff=0.5, 
         ##Use velocity relative to the cumulative center-of-mass
         tmp_vrel = np.linalg.norm(vuniq1[idx] - blob['com_vel'])
         ##Performance but unexpected decreases bound gas
-        if tmp_vrel > np.sqrt((2. * G * (blob['com_masses'] + muniq1[idx])) / d[idx]):
+        if tmp_vrel > np.sqrt((2. * sfc.GN * (blob['com_masses'] + muniq1[idx])) / d[idx]):
             continue
 
         pe1 = muniq1[idx] * pytreegrav.PotentialTarget(np.atleast_2d(xuniq1[idx]), blob['cumul_pos'],
                                                 blob['cumul_masses'],
                                                 softening_target=np.atleast_1d(huniq1[idx]),
                                                 softening_source=blob['cumul_soft'],
-                                                G=G, method='bruteforce')[-1]
+                                                G=sfc.GN, method='bruteforce')[-1]
         ke1 = KE(np.vstack([blob['com_pos'], xuniq1[idx]]), np.append(blob['com_masses'], muniq1[idx]),
                  np.vstack([blob['com_vel'], vuniq1[idx]]), np.append(0, uuniq1[idx]))
 
@@ -178,7 +178,7 @@ def get_gas_mass_bound_refactor(sys1, gas_data, sinkpos, G=4.301e3, cutoff=0.5, 
                                               huniq1[idx], 0, accel_gas1[idx], 0, pos_to_spos=True)
         tmp_sys2 = find_multiples_new2.system(blob['cumul_pos'], blob['cumul_vel'], blob['cumul_masses'],
                                                 blob['cumul_soft'], 0, blob['com_accel'], 0, pos_to_spos=True)
-        tide_crit, at1 = find_multiples_new2.check_tides_sys(tmp_sys1, tmp_sys2, G, compress=compress, tides_factor=tides_factor)
+        tide_crit, at1 = find_multiples_new2.check_tides_sys(tmp_sys1, tmp_sys2, compress=compress, tides_factor=tides_factor)
 
         if (pe1 + ke1 < 0) and (tide_crit):
             if non_pair:
@@ -226,12 +226,10 @@ def main():
     name_tag = args.name_tag
 
     snap_file = args.snap_base + '_{0}.hdf5'.format(snap_idx)
-    snapshot_num = snap_file[-8:-5].replace("_","") # File number
+    snapshot_num = snap_file[-8:-5].replace("_", "")  # File number
     
     den, x, m, h, u, b, v, fmol, fneu, partpos, partmasses, partvels, partids, partsink, tcgs, unit_base =\
     find_multiples_new2.load_data(snap_file, res_limit=1e-3)
-    # GN = 6.672e-8 * (unit_base['UnitVel'] ** 2. * unit_base['UnitLength'] / (unit_base['UnitMass'])) ** -1.
-    GN = 4.301e3
 
     xuniq, indx = np.unique(x, return_index=True, axis=0)
     muniq = m[indx]
@@ -248,46 +246,39 @@ def main():
     partpos = partpos.astype(np.float64)
     partmasses = partmasses.astype(np.float64)
     partsink = partsink.astype(np.float64)
-    ##Calculate the accelerations of the sink particles due to gas and stars. Use the full collection of stars...
-    # accel_gas = pytreegrav.AccelTarget(partpos, xuniq, muniq, softening_target=partsink, softening_source=huniq, theta=0.5, G=4.301e3)
-    # accel_stars = pytreegrav.Accel(partpos, partmasses, partsink, theta=0.5, G=4.301e3)
-    ##TO DO: USE TREE FOR GAS CELL ACCELERATIONS. FOR SINKS: TREE OR DIRECT SUM? NOT SURE?
+
     ##Combined positions for computing accelerations
     pos_all = np.vstack((xuniq, partpos))
     mass_all = np.concatenate((muniq, partmasses))
     soft_all = np.concatenate((huniq, partsink))
     tree1 = pytreegrav.ConstructTree(pos_all, mass_all, softening=soft_all)
-    ##Acceleration of gas due to stars
+    ##Acceleration of gas due to gas/stars
     accel_gas = pytreegrav.AccelTarget(xuniq, None, None,
                     softening_target=huniq, softening_source=soft_all,
-                    tree=tree1, theta=0.5, G=GN)
+                    tree=tree1, theta=0.5, G=sfc.GN)
     ##Acceleration of stars/sinks. Accelerations due to gas are computed with tree. Acceleration due to sinks are
-    ##computed with direct summation...Not sure about this
+    ##computed with direct summation
     accel_stars_gas = pytreegrav.AccelTarget(partpos, xuniq, muniq, softening_target=partsink, softening_source=huniq,
-                                             theta=0.5, G=GN, method="tree")
-    accel_stars_stars = pytreegrav.Accel(partpos, partmasses, partsink, G=GN, method="bruteforce")
+                                             theta=0.5, G=sfc.GN, method="tree")
+    accel_stars_stars = pytreegrav.Accel(partpos, partmasses, partsink, G=sfc.GN, method="bruteforce")
     accel_stars = accel_stars_gas + accel_stars_stars
-    # accel_gas = np.genfromtxt("accel_gas_{0}".format(snap_idx))
-    # accel_stars = np.genfromtxt("accel_stars_{0}".format(snap_idx))
 
     halo_mass_name = "halo_masses_sing_np{0}_c{1}_{2}_comp{3}_tf{4}".format(non_pair, cutoff, snap_idx, args.compress,
                                                                                args.tides_factor)
     halo_masses_sing = np.zeros(len(partpos))
     max_dist_sing = np.zeros(len(partpos))
-    gas_dat_h5 = h5py.File(halo_mass_name + ".hdf5".format(snap_idx, non_pair, cutoff, args.compress,
-                                                                               args.tides_factor), 'a')
+    gas_dat_h5 = h5py.File(halo_mass_name + ".hdf5", 'a')
     gas_data = (xuniq, vuniq, muniq, huniq, uuniq, accel_gas)
     part_data = (partpos, partvels, partmasses, partsink, partids, accel_stars)
     f_to_iter = functools.partial(get_mass_bound_manager, part_data, gas_data,
-                      G=GN, cutoff=cutoff, non_pair=non_pair, compress=args.compress, tides_factor=args.tides_factor)
+                      G=sfc.GN, cutoff=cutoff, non_pair=non_pair, compress=args.compress, tides_factor=args.tides_factor)
     with multiprocessing.Pool(10) as pool:
         for ii, halo_dat_full in enumerate(pool.map(f_to_iter, range(len(halo_masses_sing)))):
             halo_masses_sing[ii], max_dist_sing[ii], halo_dat = halo_dat_full
             gas_dat_h5.create_dataset("halo_{0}".format(partids[ii]), data=halo_dat)
 
     gas_dat_h5.close()
-    output_file = halo_mass_name
-    np.savetxt(output_file, np.transpose((halo_masses_sing, partids, max_dist_sing)))
+    np.savetxt(args.name_tag + halo_mass_name, np.transpose((halo_masses_sing, partids, max_dist_sing)))
 
 
 if __name__ == "__main__":

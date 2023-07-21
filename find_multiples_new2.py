@@ -4,8 +4,7 @@ from itertools import combinations
 import pickle
 import pytreegrav
 import argparse
-# import warnings
-# warnings.filterwarnings("error")
+import starforge_constants as sfc
 
 
 def load_data(file, res_limit=0.0):
@@ -70,18 +69,18 @@ def load_data(file, res_limit=0.0):
     del f
     return den, x, m, h, u, b, v, fmol, fneu, partpos, partmasses, partvels, partids, partsink, tcgs, unit_base
 
-def PE(xc, mc, hc, G=4.301e3):
+def PE(xc, mc, hc):
     """ xc - array of positions
         mc - array of masses
         hc - array of smoothing lengths
         bc - array of magnetic field strengths
     """
     ## gravitational potential energy
-    phic = pytreegrav.Potential(xc, mc, hc, G=G, theta=0.5, method='bruteforce') # G in code units
+    phic = pytreegrav.Potential(xc, mc, hc, G=sfc.GN, theta=0.5, method='bruteforce') # G in code units
     return 0.5 * (phic*mc).sum()
 
 
-def get_orbit(p1, p2, v1, v2, m1, m2, G=4.301e3, h1=0, h2=0):
+def get_orbit(p1, p2, v1, v2, m1, m2, h1=0, h2=0):
     """
     Auxiliary function to get binary properties for two particles.
 
@@ -114,7 +113,7 @@ def get_orbit(p1, p2, v1, v2, m1, m2, G=4.301e3, h1=0, h2=0):
     # pe = G*m1*m2/dp
     pe = -PE(np.array([p2_com, p1_com]), np.array([m1, m2]), np.array([h1, h2]))
 
-    a_bin = G*(m1*m2)/(2.*(pe-ke))
+    a_bin = sfc.GN*(m1*m2)/(2.*(pe-ke))
     ##Angular momentum in binary com
     j_bin = m1*np.cross(p1_com, v1_com) + m2*np.cross(p2_com, v2_com)
     ##Angular momentum of binary com
@@ -124,7 +123,7 @@ def get_orbit(p1, p2, v1, v2, m1, m2, G=4.301e3, h1=0, h2=0):
     i_bin = np.arccos(np.dot(j_bin, j_com)/np.linalg.norm(j_bin)/np.linalg.norm(j_com))*180./np.pi
     mu = m1*m2/(m1+m2)
     ##Eccentricity of the binary
-    e_bin = np.sqrt(1.-np.linalg.norm(j_bin)**2./(G*(m1+m2)*a_bin)/(mu**2.))
+    e_bin = np.sqrt(1.-np.linalg.norm(j_bin)**2./(sfc.GN*(m1+m2)*a_bin)/(mu**2.))
 
 
     return a_bin, e_bin, i_bin, dp, com[0], com[1], com[2], com_vel[0], com_vel[1], com_vel[2], m1, m2
@@ -161,14 +160,14 @@ def select_in_subregion(x, Ngrid1D=1):
         regions.append((x[:, 0] >= xlim) & (x[:, 0] <= (xlim+dx)) & (x[:, 1] >= ylim) & (x[:, 1] <= (ylim+dy)) & (x[:, 2] >= zlim) & (x[:, 2] <= (zlim+dz)))
     return regions
 
-def check_tides_sys(sys1, sys2, G, tides_factor=8, compress=False):
+def check_tides_sys(sys1, sys2, tides_factor=8.0, compress=False):
     """
-    Check whether tidal force is greater than two-body force between two stars.
+    Check whether tidal force is greater than tides_factor times two-body force between two systems.
 
-    :param System sys1: Particle positions
-    :param System sys2: Particle positions
-    :param int idx1: First particle index
-    :param int idx2: Second particle index
+    :param System sys1: System 1
+    :param System sys2: System 2
+    :param float tides_factor (8): Fudge factor used in the comparison
+    :param bool compress (False): Return true if tidal force is aligned along the separation vectpr.
 
     :return: Boolean indicating whether tidal force exceed the internal two-body force.
     :rtype: bool
@@ -188,7 +187,7 @@ def check_tides_sys(sys1, sys2, G, tides_factor=8, compress=False):
     ##Acceleration here??
     a_internal = pytreegrav.AccelTarget(np.atleast_2d(sys1_pos), np.atleast_2d(sys2_pos),
                                                    np.atleast_1d(sys2_mass), softening_target=np.atleast_1d(sys1_soft),
-                                                   softening_source=np.atleast_1d(sys2_soft), G=G)
+                                                   softening_source=np.atleast_1d(sys2_soft), G=sfc.GN)
     ##Acceleration of com of system 1 due to system 2.
     a_internal_com = np.dot(sys1_mass, a_internal) / np.sum(sys1_mass)
     ##Acceleration of com of whole system
@@ -315,8 +314,7 @@ class cluster(object):
 
     """
     def __init__(self, ps, vs, ms, partsink, ids, accels, tides=True, Ngrid1D=1,
-                 sma_order=False, mult_max=4, G=4.301e3, tides_factor=8, compress=False):
-        self.G = G
+                 sma_order=False, mult_max=4, tides_factor=8, compress=False):
         self.mult_max = mult_max
         self.Ngrid1D = Ngrid1D
         self.sma_order = sma_order
@@ -399,7 +397,7 @@ class cluster(object):
             for jj, combo in enumerate(combos_all):
                 i = combo[0]
                 j = combo[1]
-                orb_region.append(np.concatenate((get_orbit(pos[i], pos[j], vel[i], vel[j], mass[i], mass[j], G=self.G, h1=soft[0], h2=soft[1]),
+                orb_region.append(np.concatenate((get_orbit(pos[i], pos[j], vel[i], vel[j], mass[i], mass[j], h1=soft[0], h2=soft[1]),
                                                   [self.systems[idx[i]].ids[0], self.systems[idx[j]].ids[0], self.systems[idx[i]].sysID, self.systems[idx[j]].sysID])))
             self.orb_all.append(np.array(orb_region))
 
@@ -425,7 +423,7 @@ class cluster(object):
         soft = self.get_system_soft
         accel = self.get_system_accel
 
-        ens = -self.G*orb_all[:, 10]*orb_all[:, 11]/(2.*orb_all[:, 0])
+        ens = -sfc.GN*orb_all[:, 10]*orb_all[:, 11]/(2.*orb_all[:, 0])
         if self.sma_order:
             ens = orb_all[:, 0]
         en_order = np.argsort(ens)
@@ -441,9 +439,9 @@ class cluster(object):
 
             mult_total = self.systems[idx1].multiplicity + self.systems[idx2].multiplicity
             ###Tidal criterion:  (Symmetrized)
-            tidal_crit_1, at1 = check_tides_sys(self.systems[idx1], self.systems[idx2], self.G,
+            tidal_crit_1, at1 = check_tides_sys(self.systems[idx1], self.systems[idx2],
                                                 tides_factor=self.tides_factor, compress=self.compress)
-            tidal_crit_2, at2 = check_tides_sys(self.systems[idx2], self.systems[idx1], self.G,
+            tidal_crit_2, at2 = check_tides_sys(self.systems[idx2], self.systems[idx1],
                                                 tides_factor=self.tides_factor, compress=self.compress)
             tidal_crit = tidal_crit_1 and tidal_crit_2
             tidal_crit = (tidal_crit) or (not self.tides)
@@ -555,7 +553,7 @@ class cluster(object):
         idx1 = np.where(sysIDs == ID_NEW)[0][0]
         for id_it in regionIDs:
             j = np.where(id_it == sysIDs)[0][0]
-            tmp = get_orbit(pos[idx1], pos[j], vel[idx1], vel[j], mass[idx1], mass[j], G=self.G, h1=soft[idx1], h2=soft[j])
+            tmp = get_orbit(pos[idx1], pos[j], vel[idx1], vel[j], mass[idx1], mass[j], h1=soft[idx1], h2=soft[j])
             tmp = np.concatenate((tmp, [ids[idx1][0], ids[j][0], ID_NEW, id_it]))
             self.orb_all[ii] = np.append(self.orb_all[ii], tmp)
             self.orb_all[ii].shape = (-1, 16)
@@ -567,7 +565,7 @@ def main():
     parser.add_argument("--snap_base", default="snapshot", help="First part of snapshot name")
     parser.add_argument("--name_tag", default="M2e4", help="Extension for saving.")
     parser.add_argument("--sma_order", action="store_true", help="Assemble hierarchy by sma instead of binding energy")
-    parser.add_argument("--halo_mass_file", default="", help="Name of file containing gas halo mass around sink particles")
+    parser.add_argument("--halo_mass_file", default="", help="Star of the file containing gas halo mass around sink particles")
     parser.add_argument("--mult_max", type=int, default=4, help="Multiplicity cut (4).")
     parser.add_argument("--ngrid", type=int, default=1, help="Number of subgrids to use. Higher number will be faster,"
                                                              " but less accurate (1)")
@@ -599,23 +597,21 @@ def main():
     partpos = partpos.astype(np.float64)
     partmasses = partmasses.astype(np.float64)
     partsink = partsink.astype(np.float64)
-    # GN = 6.672e-8 * (unit_base['UnitVel'] ** 2. * unit_base['UnitLength'] / (unit_base['UnitMass']))**-1.
-    GN = 4.301e3
-    ##TO DO: MAKE SURE THIS IS CONSISTENT WITH THE SIMULATION (Theta, tree gravity versus brute force)
+
+    ##MAKE SURE THIS IS CONSISTENT WITH THE SIMULATION (Theta, tree gravity versus brute force)
     accel_gas = pytreegrav.AccelTarget(partpos, xuniq, muniq, softening_target=partsink, softening_source=huniq,
-                                       theta=0.5, G=GN, method='tree')
-    accel_stars = pytreegrav.Accel(partpos, partmasses, partsink, theta=0.5, G=GN, method='bruteforce')
+                                       theta=0.5, G=sfc.GN, method='tree')
+    accel_stars = pytreegrav.Accel(partpos, partmasses, partsink, theta=0.5, G=sfc.GN, method='bruteforce')
     #
     cl = cluster(partpos, partvels, partmasses, partsink, partids, accel_stars + accel_gas,
                  sma_order=sma_order, mult_max=args.mult_max, Ngrid1D=args.ngrid,
-                 G=GN, tides_factor=args.tides_factor, compress=args.compress)
+                 tides_factor=args.tides_factor, compress=args.compress)
     with open(name_tag+"_snapshot_"+snapshot_num+"_TidesTrue" +
               "_smao{0}_mult{1}_ngrid{2}_hm{3}_ft{4}_co{5}".format(sma_order, args.mult_max, args.ngrid, len(args.halo_mass_file) > 0, args.tides_factor, args.compress) + ".p", "wb") as ff:
         pickle.dump(cl, ff)
 
     # cl = cluster(partpos, partvels, partmasses, partsink, partids, accel_stars + accel_gas, tides=False,
-    #              sma_order=sma_order, mult_max=args.mult_max, Ngrid1D=args.ngrid,
-    #              G=GN, tides_factor=args.tides_factor, compress=args.compress)
+    #              sma_order=sma_order, mult_max=args.mult_max, Ngrid1D=args.ngrid, tides_factor=args.tides_factor, compress=args.compress)
     # with open(name_tag +"_snapshot_"+snapshot_num+"_TidesFalse" +
     #           "_smao{0}_mult{1}_ngrid{2}_hm{3}_ft{4check_tides_sys}_co{5}".format(sma_order, args.mult_max, args.ngrid,
     #                                                        len(args.halo_mass_file) > 0,  args.tides_factor, args.compress) +".p", "wb") as ff:
