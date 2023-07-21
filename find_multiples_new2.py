@@ -412,7 +412,7 @@ class cluster(object):
         """
         Find the binary with the largest binding energy in a given subregion.
 
-        :----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------param int ii: index of the subregion.
+        :param int ii: index of the subregion.
         """
         orb_all = self.orb_all[ii]
         if len(orb_all) < 1:
@@ -565,7 +565,7 @@ def main():
     parser.add_argument("--snap_base", default="snapshot", help="First part of snapshot name")
     parser.add_argument("--name_tag", default="M2e4", help="Extension for saving.")
     parser.add_argument("--sma_order", action="store_true", help="Assemble hierarchy by sma instead of binding energy")
-    parser.add_argument("--halo_mass_file", default="", help="Star of the file containing gas halo mass around sink particles")
+    parser.add_argument("--halo_mass_file", default="", help="Start of the file containing gas halo mass around sink particles")
     parser.add_argument("--mult_max", type=int, default=4, help="Multiplicity cut (4).")
     parser.add_argument("--ngrid", type=int, default=1, help="Number of subgrids to use. Higher number will be faster,"
                                                              " but less accurate (1)")

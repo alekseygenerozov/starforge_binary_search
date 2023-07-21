@@ -7,9 +7,9 @@ def bash_command(cmd, **kwargs):
 	return process.communicate()[0]
 
 
-# snap_base = "/scratch3/03532/mgrudic/STARFORGE_RT/STARFORGE_v1.1/M2e4_R10/M2e4_R10_S0_T1_B0.1_Res271_n2_sol0.5_42/output/snapshot"
+snap_base = "/scratch3/03532/mgrudic/STARFORGE_RT/STARFORGE_v1.1/M2e4_R10/M2e4_R10_S0_T1_B0.1_Res271_n2_sol0.5_42/output/snapshot"
 ##FOR TESTING
-snap_base = "snapshot"
+# snap_base = "snapshot"
 start = int(sys.argv[1]) #* 10
 end = (int(sys.argv[2]) + 1) #* 10
 #end = start + 1
