@@ -271,14 +271,14 @@ def main():
     gas_data = (xuniq, vuniq, muniq, huniq, uuniq, accel_gas)
     part_data = (partpos, partvels, partmasses, partsink, partids, accel_stars)
     f_to_iter = functools.partial(get_mass_bound_manager, part_data, gas_data,
-                      G=sfc.GN, cutoff=cutoff, non_pair=non_pair, compress=args.compress, tides_factor=args.tides_factor)
+                                  cutoff=cutoff, non_pair=non_pair, compress=args.compress, tides_factor=args.tides_factor)
     with multiprocessing.Pool(10) as pool:
         for ii, halo_dat_full in enumerate(pool.map(f_to_iter, range(len(halo_masses_sing)))):
             halo_masses_sing[ii], max_dist_sing[ii], halo_dat = halo_dat_full
             gas_dat_h5.create_dataset("halo_{0}".format(partids[ii]), data=halo_dat)
 
     gas_dat_h5.close()
-    np.savetxt(args.name_tag + halo_mass_name, np.transpose((halo_masses_sing, partids, max_dist_sing)))
+    np.savetxt(name_tag + halo_mass_name, np.transpose((halo_masses_sing, partids, max_dist_sing)))
 
 
 if __name__ == "__main__":
