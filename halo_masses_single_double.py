@@ -226,7 +226,8 @@ def main():
 
     den, x, m, h, u, b, v, fmol, fneu, partpos, partmasses, partvels, partids, partsink, tcgs, unit_base =\
     find_multiples_new2.load_data(snap_file, res_limit=1e-3)
-    GN = 6.672e-8 * (unit_base['UnitVel'] ** 2. * unit_base['UnitLength'] / (unit_base['UnitMass'])) ** -1.
+    # GN = 6.672e-8 * (unit_base['UnitVel'] ** 2. * unit_base['UnitLength'] / (unit_base['UnitMass'])) ** -1.
+    GN = 4.301e3
 
     xuniq, indx = np.unique(x, return_index=True, axis=0)
     muniq = m[indx]

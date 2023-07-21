@@ -4,8 +4,8 @@ from itertools import combinations
 import pickle
 import pytreegrav
 import argparse
-
-import warnings
+# import warnings
+# warnings.filterwarnings("error")
 
 
 def load_data(file, res_limit=0.0):
@@ -123,8 +123,10 @@ def get_orbit(p1, p2, v1, v2, m1, m2, G=4.301e3, h1=0, h2=0):
     #Inclination
     i_bin = np.arccos(np.dot(j_bin, j_com)/np.linalg.norm(j_bin)/np.linalg.norm(j_com))*180./np.pi
     mu = m1*m2/(m1+m2)
-    ##Eccentricity of the binary *squared*
+    ##Eccentricity of the binary
     e_bin = np.sqrt(1.-np.linalg.norm(j_bin)**2./(G*(m1+m2)*a_bin)/(mu**2.))
+
+
     return a_bin, e_bin, i_bin, dp, com[0], com[1], com[2], com_vel[0], com_vel[1], com_vel[2], m1, m2
 
 
@@ -188,7 +190,7 @@ def check_tides_sys(sys1, sys2, G, tides_factor=8, compress=False):
                                                    np.atleast_1d(sys2_mass), softening_target=np.atleast_1d(sys1_soft),
                                                    softening_source=np.atleast_1d(sys2_soft), G=G)
     ##Acceleration of com of system 1 due to system 2.
-    a_internal_com = np.dot(sys1_mass, a_internal) / sys1.mass
+    a_internal_com = np.dot(sys1_mass, a_internal) / np.sum(sys1_mass)
     ##Acceleration of com of whole system
     com_accel = (np.sum(sys1_mass) * sys1.accel + np.sum(sys2_mass) * sys2.accel) / (np.sum(sys1_mass) + np.sum(sys2_mass))
     ##Difference acceleration of system and com acceleration of com ##How do we want to order the subtraction?
@@ -200,7 +202,7 @@ def check_tides_sys(sys1, sys2, G, tides_factor=8, compress=False):
         compress_check = np.dot(a_tides, com_2 - com_1) > 0
         tidal_crit = tidal_crit or compress_check
 
-    return (tidal_crit or compress), a_tides
+    return (tidal_crit), a_tides
 
 def flatten_ids(id):
     """
@@ -584,7 +586,8 @@ def main():
     ##TO DO: UPDATE ONCE WE HAVE METHOD TO STORE HALO DATA.
     halo_masses = np.zeros(len(partmasses))
     if args.halo_mass_file:
-        halo_masses = np.genfromtxt(args.halo_mass_file)[:, 0]
+        halo_mass_file = args.halo_mass_file + "_{0}_comp{1}_tf{2}".format(args.snap, args.compress, args.tides_factor)
+        halo_masses = np.genfromtxt(halo_mass_file)[:, 0]
     partmasses += halo_masses
 
     xuniq, indx = np.unique(x, return_index=True, axis=0)
@@ -596,25 +599,27 @@ def main():
     partpos = partpos.astype(np.float64)
     partmasses = partmasses.astype(np.float64)
     partsink = partsink.astype(np.float64)
-    GN = 6.672e-8 * (unit_base['UnitVel'] ** 2. * unit_base['UnitLength'] / (unit_base['UnitMass']))**-1.
-
+    # GN = 6.672e-8 * (unit_base['UnitVel'] ** 2. * unit_base['UnitLength'] / (unit_base['UnitMass']))**-1.
+    GN = 4.301e3
     ##TO DO: MAKE SURE THIS IS CONSISTENT WITH THE SIMULATION (Theta, tree gravity versus brute force)
     accel_gas = pytreegrav.AccelTarget(partpos, xuniq, muniq, softening_target=partsink, softening_source=huniq,
                                        theta=0.5, G=GN, method='tree')
     accel_stars = pytreegrav.Accel(partpos, partmasses, partsink, theta=0.5, G=GN, method='bruteforce')
     #
     cl = cluster(partpos, partvels, partmasses, partsink, partids, accel_stars + accel_gas,
-                 sma_order=sma_order, mult_max=args.mult_max, Ngrid1D=args.ngrid, tides_factor=args.tides_factor, compress=args.compress)
+                 sma_order=sma_order, mult_max=args.mult_max, Ngrid1D=args.ngrid,
+                 G=GN, tides_factor=args.tides_factor, compress=args.compress)
     with open(name_tag+"_snapshot_"+snapshot_num+"_TidesTrue" +
               "_smao{0}_mult{1}_ngrid{2}_hm{3}_ft{4}_co{5}".format(sma_order, args.mult_max, args.ngrid, len(args.halo_mass_file) > 0, args.tides_factor, args.compress) + ".p", "wb") as ff:
         pickle.dump(cl, ff)
 
-    cl = cluster(partpos, partvels, partmasses, partsink, partids, accel_stars + accel_gas, tides=False,
-                 sma_order=sma_order, mult_max=args.mult_max, Ngrid1D=args.ngrid, tides_factor=args.tides_factor, compress=args.compress)
-    with open(name_tag +"_snapshot_"+snapshot_num+"_TidesFalse" +
-              "_smao{0}_mult{1}_ngrid{2}_hm{3}_ft{4}_co{5}".format(sma_order, args.mult_max, args.ngrid,
-                                                           len(args.halo_mass_file) > 0,  args.tides_factor, args.compress) +".p", "wb") as ff:
-        pickle.dump(cl, ff)
+    # cl = cluster(partpos, partvels, partmasses, partsink, partids, accel_stars + accel_gas, tides=False,
+    #              sma_order=sma_order, mult_max=args.mult_max, Ngrid1D=args.ngrid,
+    #              G=GN, tides_factor=args.tides_factor, compress=args.compress)
+    # with open(name_tag +"_snapshot_"+snapshot_num+"_TidesFalse" +
+    #           "_smao{0}_mult{1}_ngrid{2}_hm{3}_ft{4check_tides_sys}_co{5}".format(sma_order, args.mult_max, args.ngrid,
+    #                                                        len(args.halo_mass_file) > 0,  args.tides_factor, args.compress) +".p", "wb") as ff:
+    #     pickle.dump(cl, ff)
 
 
 

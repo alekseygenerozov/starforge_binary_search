@@ -178,7 +178,7 @@ def get_gas_mass_bound_refactor(sys1, gas_data, sinkpos, G=4.301e3, cutoff=0.5, 
                                               huniq1[idx], 0, accel_gas1[idx], 0, pos_to_spos=True)
         tmp_sys2 = find_multiples_new2.system(blob['cumul_pos'], blob['cumul_vel'], blob['cumul_masses'],
                                                 blob['cumul_soft'], 0, blob['com_accel'], 0, pos_to_spos=True)
-        tide_crit, at1 = find_multiples_new2.check_tides_sys(tmp_sys1, tmp_sys2, G=G, compress=compress, tides_factor=tides_factor)
+        tide_crit, at1 = find_multiples_new2.check_tides_sys(tmp_sys1, tmp_sys2, G, compress=compress, tides_factor=tides_factor)
 
         if (pe1 + ke1 < 0) and (tide_crit):
             if non_pair:
@@ -230,7 +230,8 @@ def main():
     
     den, x, m, h, u, b, v, fmol, fneu, partpos, partmasses, partvels, partids, partsink, tcgs, unit_base =\
     find_multiples_new2.load_data(snap_file, res_limit=1e-3)
-    GN = 6.672e-8 * (unit_base['UnitVel'] ** 2. * unit_base['UnitLength'] / (unit_base['UnitMass'])) ** -1.
+    # GN = 6.672e-8 * (unit_base['UnitVel'] ** 2. * unit_base['UnitLength'] / (unit_base['UnitMass'])) ** -1.
+    GN = 4.301e3
 
     xuniq, indx = np.unique(x, return_index=True, axis=0)
     muniq = m[indx]
@@ -269,9 +270,11 @@ def main():
     # accel_gas = np.genfromtxt("accel_gas_{0}".format(snap_idx))
     # accel_stars = np.genfromtxt("accel_stars_{0}".format(snap_idx))
 
+    halo_mass_name = "halo_masses_sing_np{0}_c{1}_{2}_comp{3}_tf{4}".format(non_pair, cutoff, snap_idx, args.compress,
+                                                                               args.tides_factor)
     halo_masses_sing = np.zeros(len(partpos))
     max_dist_sing = np.zeros(len(partpos))
-    gas_dat_h5 = h5py.File("halo_masses_sing_{0}_np{1}_c{2}_comp{3}_tf{4}.hdf5".format(snap_idx, non_pair, cutoff, args.compress,
+    gas_dat_h5 = h5py.File(halo_mass_name + ".hdf5".format(snap_idx, non_pair, cutoff, args.compress,
                                                                                args.tides_factor), 'a')
     gas_data = (xuniq, vuniq, muniq, huniq, uuniq, accel_gas)
     part_data = (partpos, partvels, partmasses, partsink, partids, accel_stars)
@@ -283,8 +286,7 @@ def main():
             gas_dat_h5.create_dataset("halo_{0}".format(partids[ii]), data=halo_dat)
 
     gas_dat_h5.close()
-    output_file =name_tag+"halo_masses_sing_{0}_np{1}_c{2}_comp{3}_tf{4}".format(snap_idx, non_pair, cutoff, args.compress,
-                                                                         args.tides_factor)
+    output_file = halo_mass_name
     np.savetxt(output_file, np.transpose((halo_masses_sing, partids, max_dist_sing)))
 
 
