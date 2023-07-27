@@ -10,7 +10,6 @@ import pytreegrav
 import argparse
 import h5py
 import multiprocessing
-from multiprocessing import shared_memory
 import functools
 import starforge_constants as sfc
 
