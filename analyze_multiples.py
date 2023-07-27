@@ -6,7 +6,7 @@ import sys
 import pickle
 
 sys.path.append("/home/aleksey/Dropbox/projects/Hagai_projects/star_forge")
-import find_multiples_new2, halo_masses_single_double
+import find_multiples_new2, halo_masses_single_double_par
 from find_multiples_new2 import cluster, system
 import h5py
 
@@ -24,8 +24,8 @@ def get_energy_from_sink_table(tmp_dat, row_idx):
     tmp_h = tmp_dat_select[:, -2]
     tmp_mass = tmp_dat_select[:, -1]
 
-    pe1 = halo_masses_single_double.PE(tmp_pos, tmp_mass, tmp_h)
-    ke1 = halo_masses_single_double.KE(tmp_pos, tmp_mass, tmp_vel, np.zeros(len(tmp_pos)))
+    pe1 = halo_masses_single_double_par.PE(tmp_pos, tmp_mass, tmp_h)
+    ke1 = halo_masses_single_double_par.KE(tmp_pos, tmp_mass, tmp_vel, np.zeros(len(tmp_pos)))
 
     return pe1 + ke1
 
@@ -230,8 +230,8 @@ def create_sys_lookup_table(r1, r2, start_snap, end_snap):
 def main():
     base = "/home/aleksey/Dropbox/projects/Hagai_projects/star_forge/big_cloud_data/"
     # base_sink = base + "/sink_data/_M2e4_R10_sink_files/M2e4_R10_S0_T1_B1_Res271_n2_sol0.5_42_snapshot_"
-    r1 = "/home/aleksey/Dropbox/projects/Hagai_projects/star_forge/big_cloud_data/_M2e4_TidesTrue/M2e4_R10_S0_T1_B1_Res271_n2_sol0.5_42_snapshot_"
-    r2 = "_TidesTrue_smaOrderFalse_mult4.p"
+    r1 = "/home/aleksey/Dropbox/projects/Hagai_projects/star_forge/big_cloud_data/_M2e4_TidesFalse/M2e4_R10_S0_T1_B1_Res271_n2_sol0.5_42_snapshot_"
+    r2 = "_TidesFalse_smaOrderFalse_mult4.p"
     # snaps = glob.glob(
     #     "/home/aleksey/Dropbox/projects/Hagai_projects/star_forge/big_cloud_data/_M2e4_TidesTrue/*snapshot*")
     # snaps = [ss.replace(r1, "") for ss in snaps]

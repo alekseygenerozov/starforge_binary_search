@@ -10,8 +10,23 @@ import pytreegrav
 import argparse
 import h5py
 import multiprocessing
+from multiprocessing import shared_memory
 import functools
 import starforge_constants as sfc
+
+import myglobals
+myglobals.gas_data = []
+
+
+def create_shared(tmp_arr):
+    """
+    Return new array that will be stored in shared memory.
+    """
+    shm = shared_memory.SharedMemory(create=True, size=tmp_arr.nbytes)
+    tmp_arr = np.ndarray(tmp_arr.shape, dtype=tmp_arr.dtype, buffer=shm.buf)
+    tmp_arr_s = tmp_arr[:]
+
+    return tmp_arr_s
 
 def PE(xc, mc, hc):
     """ xc - array of positions
@@ -105,12 +120,12 @@ def blob_setup(sys1):
 
     return blob
 
-def add_to_blob(blob, gas_data, idx):
+def add_to_blob(blob,  idx):
     """
     Bookkeeping function for get_gas_mass_bound
     """
     ##Could make copies but may take up too much memory...
-    xuniq1, vuniq1, muniq1, huniq1, uuniq1, accel_gas1 = gas_data
+    xuniq1, vuniq1, muniq1, huniq1, uuniq1, accel_gas1 = myglobals.gas_data
 
     ##This is really the com_accel: Rename to keep the pattern
     blob['cumul_masses'] = np.append(blob['cumul_masses'], muniq1[idx])
@@ -126,12 +141,11 @@ def add_to_blob(blob, gas_data, idx):
 
     return blob
 
-def get_gas_mass_bound_refactor(sys1, gas_data, sinkpos, cutoff=0.5, non_pair=False, compress=False, tides_factor=8):
+def get_gas_mass_bound_refactor(sys1,  sinkpos, cutoff=0.5, non_pair=False, compress=False, tides_factor=8):
     """
     Get to gas mass bound to a system. This is meant to be applied to a *single star.*
 
     :param System sys1: System we are interested
-    :param tuple gas_data: All the positions, velocities, masses, softening lengths, and accelerations of all gas
     :param Array-like sinkpos: Position of all sinks
     :param float cutoff: Distance up to which we look for bound gas
     :param bool non_pair: Flag to include non-pairwise interactions.
@@ -140,7 +154,7 @@ def get_gas_mass_bound_refactor(sys1, gas_data, sinkpos, cutoff=0.5, non_pair=Fa
 
     """
     blob = blob_setup(sys1)
-    xuniq1, vuniq1, muniq1, huniq1, uuniq1, accel_gas1 = gas_data
+    xuniq1, vuniq1, muniq1, huniq1, uuniq1, accel_gas1 = myglobals.gas_data
 
     d = xuniq1 - blob['com_pos']
     d = np.sum(d * d, axis=1)**.5
@@ -182,7 +196,7 @@ def get_gas_mass_bound_refactor(sys1, gas_data, sinkpos, cutoff=0.5, non_pair=Fa
 
         if (pe1 + ke1 < 0) and (tide_crit):
             if non_pair:
-                blob = add_to_blob(blob, gas_data, idx)
+                blob = add_to_blob(blob, idx)
 
             d_max = d[idx]
             halo_mass += muniq1[idx]
@@ -197,11 +211,12 @@ def get_gas_mass_bound_refactor(sys1, gas_data, sinkpos, cutoff=0.5, non_pair=Fa
 
 
 
-def get_mass_bound_manager(part_data, gas_data, ii, **kwargs):
+def get_mass_bound_manager(part_data, ii, **kwargs):
     partpos, partvels, partmasses, partsink, partids, accel_stars = part_data
+
     sys_tmp = find_multiples_new2.system(partpos[ii], partvels[ii], partmasses[ii], partsink[ii], partids[ii],
                                          accel_stars[ii], 0)
-    res = get_gas_mass_bound_refactor(sys_tmp, gas_data, partpos, **kwargs)
+    res = get_gas_mass_bound_refactor(sys_tmp, partpos, **kwargs)
     halo_mass, max_dist, bound_index, rad_bins, halo_mass_bins = res
 
     return halo_mass, max_dist, np.transpose((rad_bins, halo_mass_bins))
@@ -268,9 +283,10 @@ def main():
     halo_masses_sing = np.zeros(len(partpos))
     max_dist_sing = np.zeros(len(partpos))
     gas_dat_h5 = h5py.File(halo_mass_name + ".hdf5", 'a')
-    gas_data = (xuniq, vuniq, muniq, huniq, uuniq, accel_gas)
+
+    myglobals.gas_data = (xuniq, vuniq, muniq, huniq, uuniq, accel_gas)
     part_data = (partpos, partvels, partmasses, partsink, partids, accel_stars)
-    f_to_iter = functools.partial(get_mass_bound_manager, part_data, gas_data,
+    f_to_iter = functools.partial(get_mass_bound_manager, part_data,
                                   cutoff=cutoff, non_pair=non_pair, compress=args.compress, tides_factor=args.tides_factor)
     with multiprocessing.Pool(10) as pool:
         for ii, halo_dat_full in enumerate(pool.map(f_to_iter, range(len(halo_masses_sing)))):
