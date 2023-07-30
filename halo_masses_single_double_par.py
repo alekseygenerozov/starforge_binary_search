@@ -12,6 +12,7 @@ import h5py
 import multiprocessing
 import functools
 import starforge_constants as sfc
+import time
 
 import myglobals
 myglobals.gas_data = []
@@ -265,16 +266,22 @@ def main():
     pos_all = np.vstack((xuniq, partpos))
     mass_all = np.concatenate((muniq, partmasses))
     soft_all = np.concatenate((huniq, partsink))
+    print("Constructing Tree {0}".format(time.time()))
+    sys.stdout.flush()
     tree1 = pytreegrav.ConstructTree(pos_all, mass_all, softening=soft_all)
     ##Acceleration of gas due to gas/stars
+    print("Gas acceleration {0}".format(time.time()))
+    sys.stdout.flush()
     accel_gas = pytreegrav.AccelTarget(xuniq, None, None,
                     softening_target=huniq, softening_source=soft_all,
-                    tree=tree1, theta=0.5, G=sfc.GN)
+                                       tree=tree1, theta=0.5, G=sfc.GN, parallel=True)
     ##Acceleration of stars/sinks. Accelerations due to gas are computed with tree. Acceleration due to sinks are
     ##computed with direct summation
+    print("Accel of stars {0}".format(time.time()))
+    sys.stdout.flush()
     accel_stars_gas = pytreegrav.AccelTarget(partpos, xuniq, muniq, softening_target=partsink, softening_source=huniq,
-                                             theta=0.5, G=sfc.GN, method="tree")
-    accel_stars_stars = pytreegrav.Accel(partpos, partmasses, partsink, G=sfc.GN, method="bruteforce")
+                                             theta=0.5, G=sfc.GN, method="tree", parallel=True)
+    accel_stars_stars = pytreegrav.Accel(partpos, partmasses, partsink, G=sfc.GN, method="bruteforce", parallel=True)
     accel_stars = accel_stars_gas + accel_stars_stars
 
     halo_mass_name = "halo_masses_sing_np{0}_c{1}_{2}_comp{3}_tf{4}".format(non_pair, cutoff, snap_idx, args.compress,
@@ -287,6 +294,8 @@ def main():
     part_data = (partpos, partvels, partmasses, partsink, partids, accel_stars)
     f_to_iter = functools.partial(get_mass_bound_manager, part_data,
                                   cutoff=cutoff, non_pair=non_pair, compress=args.compress, tides_factor=args.tides_factor)
+    print("Pool {0}".format(time.time()))
+    sys.stdout.flush()
     with multiprocessing.Pool(10) as pool:
         for ii, halo_dat_full in enumerate(pool.map(f_to_iter, range(len(halo_masses_sing)))):
             halo_masses_sing[ii], max_dist_sing[ii], halo_dat = halo_dat_full
