@@ -9,7 +9,7 @@ sys.path.append("/home/aleksey/Dropbox/projects/Hagai_projects/star_forge")
 import find_multiples_new2, halo_masses_single_double_par
 from find_multiples_new2 import cluster, system
 import h5py
-
+from bash_command import bash_command as bc
 
 
 def snap_lookup(tmp_dat, pid):
@@ -109,6 +109,7 @@ def get_unique_binaries(r1, r2, start_snap, end_snap):
 
     bin_ids_all = []
     times_all = []
+    nsys = []
 
     for ss in range(start_snap, end_snap):
         try:
@@ -121,6 +122,7 @@ def get_unique_binaries(r1, r2, start_snap, end_snap):
         ids_a = np.array([set(sys1.ids) for sys1 in cl_a.systems], dtype=object)
         bin_ids_all.append(ids_a[mults_a == 2])
         times_all.append(np.ones(ids_a[mults_a == 2].size) * ss)
+        nsys.append([ss, len(ids_a), len(ids_a[mults_a == 2]), len(ids_a[mults_a == 3]), len(ids_a[mults_a == 4])])
 
         for jj, pp_set in enumerate(ids_a):
             if (mults_a[jj] == 2) and ~np.isin(pp_set, bin_ids):
@@ -136,7 +138,8 @@ def get_unique_binaries(r1, r2, start_snap, end_snap):
                 sep_i.append(np.linalg.norm(np.diff(cl_a.systems[jj].sub_pos, axis=0)))
 
     return bin_ids, np.transpose((first_appearance, sma_i, ecc_i, pos_ix, pos_iy, pos_iz,
-                                  mass_i1, mass_i2, sep_i)), np.concatenate(bin_ids_all), np.concatenate(times_all)
+                                  mass_i1, mass_i2, sep_i)), np.concatenate(bin_ids_all), np.concatenate(times_all),\
+        nsys
 
 def classify_binaries(r1, r2, bin_ids, first_snapshots):
     """
@@ -195,10 +198,9 @@ def classify_binaries(r1, r2, bin_ids, first_snapshots):
             continue
         bin_class[ii] = 'ex'
 
-
     return bin_class
 
-def create_sys_lookup_table(r1, r2, start_snap, end_snap):
+def create_sys_lookup_table(r1, r2, base_sink, start_snap, end_snap):
     """
     Get the unique binaries from a series of snapshots...
 
@@ -207,8 +209,8 @@ def create_sys_lookup_table(r1, r2, start_snap, end_snap):
     :param start_snap int: Starting snapshot index
     :param end_snap int: Ending snapshot index
 
-    :return: List where columns are (i) snapshot (ii) star id (iii) index of parent system (iv) multiplicity
-    :rtype: list
+    :return: numpy array where columns are (i) snapshot (ii) star id (iii) index of parent system (iv) multiplicity
+    :rtype: np.ndarray
     """
     lookup = []
     for ss in range(start_snap, end_snap):
@@ -218,66 +220,100 @@ def create_sys_lookup_table(r1, r2, start_snap, end_snap):
         except FileNotFoundError:
             continue
         ids_a = np.array([sys1.ids for sys1 in cl.systems], dtype=object)
+        tmp_sink = np.atleast_2d(np.genfromtxt(base_sink + "{0:03d}.sink".format(ss)))
 
         for ii in range(len(ids_a)):
-            for elem1 in ids_a[ii]:
-                lookup.append([ss, elem1, ii, len(ids_a[ii])])
+            for jj, elem1 in enumerate(ids_a[ii]):
+                m1 = cl.systems[ii].sub_mass[jj]
+                tmp_orb = cl.systems[ii].orbits
+                w1_row, w1_idx = snap_lookup(tmp_sink, elem1)
+                if len(tmp_orb) == 0:
+                    sma1 = -1
+                ##Using mass to identify particles -- In principle may not give a unique match...
+                else:
+                    sel1 = np.isclose(m1, tmp_orb[:, 10:12])
+                    sel1 = np.array([row[0] or row[1] for row in sel1])
+                    sma1 = tmp_orb[sel1][0][0]
+                lookup.append([ss, elem1, ii, len(ids_a[ii]), m1, w1_row[-1], sma1])
 
-    return lookup
+    return np.array(lookup)
 
+def mult_filt(bin_ids, sys_lookup, ic):
+    """
+    Checking to see if multiples had previously been single prior to their first appearance
 
+    :param bin_ids Array-like: List of binary ids to check
+    :param sys_lookup Array-like: Lookup table for stellar properties
+    :param ic Array-like: Lookup table for initial binary properties
+
+    :return: Array of booleans. True=Multiple stars had previously been in multiple
+    :rtype: np.ndarray
+    """
+    t_first = ic[:, 0]
+    mults_filt = np.zeros(len(bin_ids)).astype(bool)
+    for ii, row in enumerate(bin_ids):
+        row_list = list(row)
+        sys_lookup_sel0 = sys_lookup[(sys_lookup[:, 1] == row_list[0]) & (sys_lookup[:, 0] < t_first[ii])]
+        sys_lookup_sel1 = sys_lookup[(sys_lookup[:, 1] == row_list[1]) & (sys_lookup[:, 0] < t_first[ii])]
+        mults_filt[ii] = (np.all(sys_lookup_sel0[:, 3] == 1) and np.all(sys_lookup_sel1[:, 3] == 1))
+
+    return mults_filt
 
 def main():
-    base = "/home/aleksey/Dropbox/projects/Hagai_projects/star_forge/big_cloud_data/"
-    # base_sink = base + "/sink_data/_M2e4_R10_sink_files/M2e4_R10_S0_T1_B1_Res271_n2_sol0.5_42_snapshot_"
-    r1 = "/home/aleksey/Dropbox/projects/Hagai_projects/star_forge/big_cloud_data/_M2e4_TidesFalse/M2e4_R10_S0_T1_B1_Res271_n2_sol0.5_42_snapshot_"
-    r2 = "_TidesFalse_smaOrderFalse_mult4.p"
-    # snaps = glob.glob(
-    #     "/home/aleksey/Dropbox/projects/Hagai_projects/star_forge/big_cloud_data/_M2e4_TidesTrue/*snapshot*")
-    # snaps = [ss.replace(r1, "") for ss in snaps]
-    # snaps = [ss.replace(r2, "") for ss in snaps]
-    # snaps = np.sort(np.array(snaps).astype(int))
+    sim_tag = "M2e4_R10_S0_T1_B0.1_Res271_n2_sol0.5_42"
+    base = "/home/aleksey/Dropbox/projects/Hagai_projects/star_forge/{0}/".format(sim_tag)
+    r1 = "/home/aleksey/Dropbox/projects/Hagai_projects/star_forge/{0}/M2e4_snapshot_".format(sim_tag)
+    r2 = sys.argv[1]
+    base_sink = base + "/sinkprop/{0}_snapshot_".format(sim_tag)
+    r2_nosuff = r2.replace(".p", "")
 
-    start_snap = 77
-    end_snap = 723
+    start_snap = 100
+    end_snap = 200
+    aa = "analyze_multiples_output_{0}/".format(r2_nosuff)
+    bc.bash_command("mkdir " + base + aa)
+    with open(base + aa + "/mult_data_path", "w") as ff:
+        ff.write(r1 + "\n")
+        ff.write(r2 + "\n")
     ##Unique binaries
 #######################################################################################################################################################################
     ##Binary ids and initial conditions
     try:
-        bin_ids = np.load(base + "/analyze_multiples_output/unique_bin_ids.npz", allow_pickle=True)['arr_0']
-        ic = np.load(base + "/analyze_multiples_output/ic.npz", allow_pickle=True)['arr_0']
-        bin_ids_all = np.load(base + "/analyze_multiples_output/bin_ids_all.npz", allow_pickle=True)['arr_0']
-        times_all = np.load(base + "/analyze_multiples_output/times_all.npz", allow_pickle=True)['arr_0']
+        bin_ids = np.load(base + aa + "/unique_bin_ids.npz", allow_pickle=True)['arr_0']
+        ic = np.load(base + aa + "/ic.npz", allow_pickle=True)['arr_0']
+        bin_ids_all = np.load(base + aa + "/bin_ids_all.npz", allow_pickle=True)['arr_0']
+        times_all = np.load(base + aa + "/times_all.npz", allow_pickle=True)['arr_0']
+        nsys = np.load(base + aa + "/nsys.npz", allow_pickle=True)['arr_0']
     except FileNotFoundError:
-        bin_ids, ic, bin_ids_all, times_all = get_unique_binaries(r1, r2, start_snap, end_snap)
-        np.savez(base + "/analyze_multiples_output/unique_bin_ids", bin_ids)
-        np.savez(base + "/analyze_multiples_output/ic", ic)
-        np.savez(base + "/analyze_multiples_output/bin_ids_all", bin_ids_all)
-        np.savez(base + "/analyze_multiples_output/times_all", times_all)
-
+        bin_ids, ic, bin_ids_all, times_all, nsys = get_unique_binaries(r1, r2, start_snap, end_snap)
+        np.savez(base + aa + "/unique_bin_ids", bin_ids)
+        np.savez(base + aa + "/ic", ic)
+        np.savez(base + aa + "/bin_ids_all", bin_ids_all)
+        np.savez(base + aa + "/times_all", times_all)
+        np.savez(base + aa + "/nsys", nsys)
     first_snapshots = ic[:, 0].astype(int)
 
     ##Binary classification -- Store output on disc. If it already exists then skip.
     try:
-        classes = np.load(base + "/analyze_multiples_output/classes.npz", allow_pickle=True)
+        classes = np.load(base + aa + "/classes.npz", allow_pickle=True)
     except FileNotFoundError:
         classes = classify_binaries(r1, r2, bin_ids, first_snapshots)
-        np.savez(base + "/analyze_multiples_output/classes", classes)
+        np.savez(base + aa + "/classes", classes)
     ##Table to lookup systems by particle ids
     try:
-        sys_lookup = np.load(base + "/analyze_multiples_output/system_lookup_table.npz", allow_pickle=True)
+        sys_lookup = np.load(base + aa + "/system_lookup_table.npz", allow_pickle=True)
     except FileNotFoundError:
-        sys_lookup = create_sys_lookup_table(r1, r2, start_snap, end_snap)
-        np.savez(base + "/analyze_multiples_output/system_lookup_table", sys_lookup)
+        sys_lookup = create_sys_lookup_table(r1, r2, base_sink, start_snap, end_snap)
+        np.savez(base + aa + "/system_lookup_table", sys_lookup)
     ##Tag marking the final fate of the binary.
     fate_tags = np.empty(len(bin_ids), dtype='S4')
     final_snap = np.empty(len(bin_ids), dtype=int)
     for ii, row in enumerate(bin_ids):
-        fate_tags[ii] = get_fate(r1, r2, list(row), end_snap)
+        fate_tags[ii] = get_fate(r1, r2, list(row), end_snap - 1)
         tmp_idx = np.where(bin_ids_all == row)[0]
         final_snap[ii] = np.max(times_all[tmp_idx])
-    np.savez(base + "/analyze_multiples_output/fate_tags", fate_tags)
-    np.savez(base + "/analyze_multiples_output/bin_final_snap", final_snap)
+    np.savez(base + aa + "/fate_tags", fate_tags)
+    np.savez(base + aa + "/bin_final_snap", final_snap)
+    np.savez(base + aa + "/mults_filt", mult_filt(bin_ids, sys_lookup, ic))
 #######################################################################################################################################################################
 
 
