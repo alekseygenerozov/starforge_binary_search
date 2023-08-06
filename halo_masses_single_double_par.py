@@ -30,7 +30,7 @@ def create_shared(tmp_arr):
     """
     shm = shared_memory.SharedMemory(create=True, size=tmp_arr.nbytes)
     tmp_arr_s = np.ndarray(tmp_arr.shape, dtype=tmp_arr.dtype, buffer=shm.buf)
-    tmp_arr_s = tmp_arr[:]
+    tmp_arr_s[:] = tmp_arr[:]
 
     return shm
 
