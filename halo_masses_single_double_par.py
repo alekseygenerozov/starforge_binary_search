@@ -337,7 +337,7 @@ def main():
     # ctx_in_main.set_forkserver_preload(['myglobals'])
     with ctx_in_main.Pool(56) as pool:
         for ii, halo_dat_full in enumerate(pool.map(f_to_iter, range(len(halo_masses_sing)))):
-            if tage_myr[ii] >= 1.1:
+            if tage_myr[ii] >= 1.0:
                 continue
             halo_masses_sing[ii], max_dist_sing[ii], halo_dat = halo_dat_full
             gas_dat_h5.create_dataset("halo_{0}".format(partids[ii]), data=halo_dat)

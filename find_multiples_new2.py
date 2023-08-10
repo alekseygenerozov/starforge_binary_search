@@ -64,7 +64,7 @@ def load_data(file, res_limit=0.0):
     # Example: To convert to density in units of g/cm^3 do: den*unit_base['UnitMass']/unit_base['UnitLength']**3
 
     tsnap_myr = time * (unit_base['UnitLength'] / unit_base['UnitVel']) / (3600.0 * 24.0 * 365.0 * 1e6)
-    tstar_form_Myr = f['PartType5']['StellarFormationTime'][...] * (unit_base['UnitLength'] / unit_base['UnitVel']) / (3600.0 * 24.0 * 365.0 * 1e6)
+    tstar_form_Myr = f['PartType5']['ProtoStellarAge'][...] * (unit_base['UnitLength'] / unit_base['UnitVel']) / (3600.0 * 24.0 * 365.0 * 1e6)
     tage_myr = tsnap_myr - tstar_form_Myr
 
     print("Snapshot time in %f Myr" % (tsnap_myr))
