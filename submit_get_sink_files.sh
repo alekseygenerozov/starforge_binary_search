@@ -12,9 +12,13 @@
 
 export OMP_NUM_THREADS=9
 
+module load hdf5
+module unload impi
+module load python3/3.9.2
+
 module load launcher
-export LAUNCHER_RMI=SLURM
-export LAUNCHER_PLUGIN_DIR=$LAUNCHER_DIR/plugins
+#export LAUNCHER_RMI=SLURM
+#export LAUNCHER_PLUGIN_DIR=$LAUNCHER_DIR/plugins
 
 #                         # JOB_FILE is a list of executions to run
 
