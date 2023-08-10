@@ -265,7 +265,7 @@ def main():
     snap_file = args.snap_base + '_{0}.hdf5'.format(snap_idx)
     snapshot_num = snap_file[-8:-5].replace("_", "")  # File number
     
-    den, x, m, h, u, b, v, fmol, fneu, partpos, partmasses, partvels, partids, partsink, tcgs, unit_base =\
+    den, x, m, h, u, b, v, fmol, fneu, partpos, partmasses, partvels, partids, partsink, tage_myr, unit_base =\
     find_multiples_new2.load_data(snap_file, res_limit=1e-3)
 
     xuniq, indx = np.unique(x, return_index=True, axis=0)
@@ -283,6 +283,7 @@ def main():
     partpos = partpos.astype(np.float64)
     partmasses = partmasses.astype(np.float64)
     partsink = partsink.astype(np.float64)
+    tage_myr = tage_myr.astype(np.float64)
 
     ##Combined positions for computing accelerations
     pos_all = np.vstack((xuniq, partpos))
@@ -334,8 +335,10 @@ def main():
 
     ctx_in_main = multiprocessing.get_context('spawn')
     # ctx_in_main.set_forkserver_preload(['myglobals'])
-    with ctx_in_main.Pool(10) as pool:
+    with ctx_in_main.Pool(56) as pool:
         for ii, halo_dat_full in enumerate(pool.map(f_to_iter, range(len(halo_masses_sing)))):
+            if tage_myr[ii] >= 1.1:
+                continue
             halo_masses_sing[ii], max_dist_sing[ii], halo_dat = halo_dat_full
             gas_dat_h5.create_dataset("halo_{0}".format(partids[ii]), data=halo_dat)
 

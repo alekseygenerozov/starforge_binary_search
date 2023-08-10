@@ -65,11 +65,13 @@ def load_data(file, res_limit=0.0):
     # Unit base information specifies conversion between code units and CGS
     # Example: To convert to density in units of g/cm^3 do: den*unit_base['UnitMass']/unit_base['UnitLength']**3
 
-    tcgs = time * (unit_base['UnitLength'] / unit_base['UnitVel']) / (3600.0 * 24.0 * 365.0 * 1e6)
-    print("Snapshot time in %f Myr" % (tcgs))
+    tsnap_myr = time * (unit_base['UnitLength'] / unit_base['UnitVel']) / (3600.0 * 24.0 * 365.0 * 1e6)
+    tstar_form_Myr = f['PartType5']['StellarFormationTime'][...] * (unit_base['UnitLength'] / unit_base['UnitVel']) / (3600.0 * 24.0 * 365.0 * 1e6)
+    tage_myr = tsnap_myr - tstar_form_Myr
+    print("Snapshot time in %f Myr" % (tsnap_myr))
 
     del f
-    return den, x, m, h, u, b, v, fmol, fneu, partpos, partmasses, partvels, partids, partsink, tcgs, unit_base, \
+    return den, x, m, h, u, b, v, fmol, fneu, partpos, partmasses, partvels, partids, partsink, tage_myr, unit_base, \
         partspin
 
 def main():
@@ -80,7 +82,7 @@ def main():
     name_tag = args.tag
     snapshot_num = args.snap[-8:-5].replace("_","") # File number
 
-    den, x, m, h, u, b, v, fmol, fneu, partpos, partmasses, partvels, partids, partsink, tcgs, unit_base, partspin\
+    den, x, m, h, u, b, v, fmol, fneu, partpos, partmasses, partvels, partids, partsink, tage_myr, unit_base, partspin\
         = load_data(args.snap)
 
     nsinks = len(partpos)
@@ -90,6 +92,7 @@ def main():
 
     np.savetxt(name_tag+"_snapshot_"+snapshot_num+".sink" , np.hstack((partids, partpos, partvels, partsink, partmasses)))
     np.savetxt(name_tag+"_snapshot_"+snapshot_num+".spin", partspin)
+    np.savetxt(name_tag+"_snapshot_"+snapshot_num+".age", tage_myr)
 
 if __name__ == "__main__":
     main()

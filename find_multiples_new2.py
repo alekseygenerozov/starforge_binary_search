@@ -63,11 +63,14 @@ def load_data(file, res_limit=0.0):
     # Unit base information specifies conversion between code units and CGS
     # Example: To convert to density in units of g/cm^3 do: den*unit_base['UnitMass']/unit_base['UnitLength']**3
 
-    tcgs = time * (unit_base['UnitLength'] / unit_base['UnitVel']) / (3600.0 * 24.0 * 365.0 * 1e6)
-    print("Snapshot time in %f Myr" % (tcgs))
+    tsnap_myr = time * (unit_base['UnitLength'] / unit_base['UnitVel']) / (3600.0 * 24.0 * 365.0 * 1e6)
+    tstar_form_Myr = f['PartType5']['StellarFormationTime'][...] * (unit_base['UnitLength'] / unit_base['UnitVel']) / (3600.0 * 24.0 * 365.0 * 1e6)
+    tage_myr = tsnap_myr - tstar_form_Myr
+
+    print("Snapshot time in %f Myr" % (tsnap_myr))
 
     del f
-    return den, x, m, h, u, b, v, fmol, fneu, partpos, partmasses, partvels, partids, partsink, tcgs, unit_base
+    return den, x, m, h, u, b, v, fmol, fneu, partpos, partmasses, partvels, partids, partsink, tage_myr, unit_base
 
 def PE(xc, mc, hc):
     """ xc - array of positions
@@ -578,9 +581,9 @@ def main():
     name_tag = args.name_tag
     snapshot_num = snapshot_file[-8:-5].replace("_","") # File number
 
-    # den, x, m, h, u, b, v, t, fmol, fneu, partpos, partmasses, partvels, partids, tcgs, unit_base = load_data(snapshot_file, res_limit=1e-3)
+    # den, x, m, h, u, b, v, t, fmol, fneu, partpos, partmasses, partvels, partids, tage_myr, unit_base = load_data(snapshot_file, res_limit=1e-3)
     # cl = cluster(partpos, partvels, partmasses, partids)
-    den, x, m, h, u, b, v, fmol, fneu, partpos, partmasses, partvels, partids, partsink, tcgs, unit_base = load_data(snapshot_file, res_limit=1e-3)
+    den, x, m, h, u, b, v, fmol, fneu, partpos, partmasses, partvels, partids, partsink, tage_myr, unit_base = load_data(snapshot_file, res_limit=1e-3)
     ##TO DO: UPDATE ONCE WE HAVE METHOD TO STORE HALO DATA.
     halo_masses = np.zeros(len(partmasses))
     if args.halo_mass_file:
