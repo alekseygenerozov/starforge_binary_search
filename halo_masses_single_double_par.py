@@ -232,7 +232,9 @@ def get_gas_mass_bound_refactor(sys1, sinkpos, gas_data, cutoff=0.5, non_pair=Fa
     return halo_mass, d_max, bound_index, .5 * (rad_bins[:-1] + rad_bins[1:]), halo_mass_bins[1:]
 
 def get_mass_bound_manager(part_data, aux, ii, **kwargs):
-    partpos, partvels, partmasses, partsink, partids, accel_stars = part_data
+    partpos, partvels, partmasses, partsink, partids, accel_stars, tage_myr = part_data
+    if tage_myr[ii] >= 1.0:
+        return 0, 0, np.array([[0, 0]])
     with h5py.File(aux, "r") as ff:
         gas_data = ff["{0}".format(ii)][...]
 
@@ -327,7 +329,7 @@ def main():
     bash_command("rm " + halo_mass_name + ".hdf5")
     gas_dat_h5 = h5py.File(halo_mass_name + ".hdf5", 'a')
 
-    part_data = (partpos, partvels, partmasses, partsink, partids, accel_stars)
+    part_data = (partpos, partvels, partmasses, partsink, partids, accel_stars, tage_myr)
     f_to_iter = functools.partial(get_mass_bound_manager, part_data, "aux.hdf5",
                                   cutoff=cutoff, non_pair=non_pair, compress=args.compress, tides_factor=args.tides_factor)
     print("Pool {0}".format(time.time()))
@@ -337,8 +339,6 @@ def main():
     # ctx_in_main.set_forkserver_preload(['myglobals'])
     with ctx_in_main.Pool(56) as pool:
         for ii, halo_dat_full in enumerate(pool.map(f_to_iter, range(len(halo_masses_sing)))):
-            if tage_myr[ii] >= 1.0:
-                continue
             halo_masses_sing[ii], max_dist_sing[ii], halo_dat = halo_dat_full
             gas_dat_h5.create_dataset("halo_{0}".format(partids[ii]), data=halo_dat)
 
