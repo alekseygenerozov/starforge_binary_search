@@ -340,7 +340,7 @@ def main():
 
     ctx_in_main = multiprocessing.get_context('spawn')
     # ctx_in_main.set_forkserver_preload(['myglobals'])
-    with ctx_in_main.Pool(56) as pool:
+    with ctx_in_main.Pool(10) as pool:
         for ii, halo_dat_full in enumerate(pool.map(f_to_iter, range(len(halo_masses_sing)))):
             halo_masses_sing[ii], max_dist_sing[ii], halo_dat = halo_dat_full
             gas_dat_h5.create_dataset("halo_{0}".format(partids[ii]), data=halo_dat)

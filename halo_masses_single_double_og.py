@@ -13,26 +13,20 @@ import multiprocessing
 import functools
 import starforge_constants as sfc
 import time
-from multiprocessing import shared_memory
-import subprocess
-# import myglobals
-# myglobals.gas_data = []
-# set_start_method('forkserver', force=True)
 
-def bash_command(cmd, **kwargs):
-	'''Run command from the bash shell'''
-	process = subprocess.Popen(['/bin/bash', '-c', cmd],  **kwargs)
-	return process.communicate()[0]
+import myglobals
+myglobals.gas_data = []
+
 
 def create_shared(tmp_arr):
     """
     Return new array that will be stored in shared memory.
     """
     shm = shared_memory.SharedMemory(create=True, size=tmp_arr.nbytes)
-    tmp_arr_s = np.ndarray(tmp_arr.shape, dtype=tmp_arr.dtype, buffer=shm.buf)
-    tmp_arr_s[:] = tmp_arr[:]
+    tmp_arr = np.ndarray(tmp_arr.shape, dtype=tmp_arr.dtype, buffer=shm.buf)
+    tmp_arr_s = tmp_arr[:]
 
-    return shm
+    return tmp_arr_s
 
 def PE(xc, mc, hc):
     """ xc - array of positions
@@ -126,19 +120,12 @@ def blob_setup(sys1):
 
     return blob
 
-def add_to_blob(blob, gas_data, idx):
+def add_to_blob(blob,  idx):
     """
     Bookkeeping function for get_gas_mass_bound
     """
     ##Could make copies but may take up too much memory...
-    # existing_shm = shared_memory.SharedMemory(name=shm)
-    # gas_data = np.ndarray(dim, dtype=np.float64, buffer=existing_shm.buf)
-    xuniq1 = gas_data[:, :3]
-    vuniq1 = gas_data[:, 3:6]
-    muniq1 = gas_data[:, 6]
-    huniq1 = gas_data[:, 7]
-    uuniq1 = gas_data[:, 8]
-    accel_gas1 = gas_data[:, 9:]
+    xuniq1, vuniq1, muniq1, huniq1, uuniq1, accel_gas1 = myglobals.gas_data
 
     ##This is really the com_accel: Rename to keep the pattern
     blob['cumul_masses'] = np.append(blob['cumul_masses'], muniq1[idx])
@@ -152,17 +139,14 @@ def add_to_blob(blob, gas_data, idx):
     blob['com_pos'] = np.average(blob['cumul_pos'], weights=blob['cumul_masses'], axis=0)
     blob['com_vel'] = np.average(blob['cumul_vel'], weights=blob['cumul_masses'], axis=0)
 
-    # existing_shm.close()
-
     return blob
 
-def get_gas_mass_bound_refactor(sys1, sinkpos, gas_data, cutoff=0.5, non_pair=False, compress=False, tides_factor=8):
+def get_gas_mass_bound_refactor(sys1,  sinkpos, cutoff=0.5, non_pair=False, compress=False, tides_factor=8):
     """
     Get to gas mass bound to a system. This is meant to be applied to a *single star.*
 
     :param System sys1: System we are interested
     :param Array-like sinkpos: Position of all sinks
-    :param Array-like gas_data: Gas data
     :param float cutoff: Distance up to which we look for bound gas
     :param bool non_pair: Flag to include non-pairwise interactions.
     :param bool compress: Whether to filter out compressive tidal forces (False).
@@ -170,14 +154,8 @@ def get_gas_mass_bound_refactor(sys1, sinkpos, gas_data, cutoff=0.5, non_pair=Fa
 
     """
     blob = blob_setup(sys1)
-    # existing_shm = shared_memory.SharedMemory(name=shm)
-    # gas_data = np.ndarray(dim, dtype=np.float64, buffer=existing_shm.buf)
-    xuniq1 = gas_data[:, :3]
-    vuniq1 = gas_data[:, 3:6]
-    muniq1 = gas_data[:, 6]
-    huniq1 = gas_data[:, 7]
-    uuniq1 = gas_data[:, 8]
-    accel_gas1 = gas_data[:, 9:]
+    xuniq1, vuniq1, muniq1, huniq1, uuniq1, accel_gas1 = myglobals.gas_data
+
     d = xuniq1 - blob['com_pos']
     d = np.sum(d * d, axis=1)**.5
     ord1 = np.argsort(d)
@@ -218,7 +196,7 @@ def get_gas_mass_bound_refactor(sys1, sinkpos, gas_data, cutoff=0.5, non_pair=Fa
 
         if (pe1 + ke1 < 0) and (tide_crit):
             if non_pair:
-                blob = add_to_blob(blob, gas_data, idx)
+                blob = add_to_blob(blob, idx)
 
             d_max = d[idx]
             halo_mass += muniq1[idx]
@@ -228,19 +206,19 @@ def get_gas_mass_bound_refactor(sys1, sinkpos, gas_data, cutoff=0.5, non_pair=Fa
             bound_index.append(particle_indices[idx])
 
     halo_mass_bins = np.cumsum(halo_mass_bins)
-    # existing_shm.close()
     return halo_mass, d_max, bound_index, .5 * (rad_bins[:-1] + rad_bins[1:]), halo_mass_bins[1:]
 
-def get_mass_bound_manager(part_data, aux, ii, **kwargs):
+
+
+
+def get_mass_bound_manager(part_data, ii, **kwargs):
     partpos, partvels, partmasses, partsink, partids, accel_stars, tage_myr = part_data
     if tage_myr[ii] >= 1.0:
         return 0, 0, np.array([[0, 0]])
-    with h5py.File(aux, "r") as ff:
-        gas_data = ff["{0}".format(ii)][...]
 
     sys_tmp = find_multiples_new2.system(partpos[ii], partvels[ii], partmasses[ii], partsink[ii], partids[ii],
                                          accel_stars[ii], 0)
-    res = get_gas_mass_bound_refactor(sys_tmp, partpos, gas_data, **kwargs)
+    res = get_gas_mass_bound_refactor(sys_tmp, partpos, **kwargs)
     halo_mass, max_dist, bound_index, rad_bins, halo_mass_bins = res
 
     return halo_mass, max_dist, np.transpose((rad_bins, halo_mass_bins))
@@ -266,7 +244,7 @@ def main():
 
     snap_file = args.snap_base + '_{0}.hdf5'.format(snap_idx)
     snapshot_num = snap_file[-8:-5].replace("_", "")  # File number
-    
+
     den, x, m, h, u, b, v, fmol, fneu, partpos, partmasses, partvels, partids, partsink, tage_myr, unit_base =\
     find_multiples_new2.load_data(snap_file, res_limit=1e-3)
 
@@ -285,7 +263,6 @@ def main():
     partpos = partpos.astype(np.float64)
     partmasses = partmasses.astype(np.float64)
     partsink = partsink.astype(np.float64)
-    tage_myr = tage_myr.astype(np.float64)
 
     ##Combined positions for computing accelerations
     pos_all = np.vstack((xuniq, partpos))
@@ -300,22 +277,6 @@ def main():
     accel_gas = pytreegrav.AccelTarget(xuniq, None, None,
                     softening_target=huniq, softening_source=soft_all,
                                        tree=tree1, theta=0.5, G=sfc.GN, parallel=True)
-    gas_data = np.hstack((xuniq, vuniq, np.atleast_2d(muniq).T, np.atleast_2d(huniq).T, np.atleast_2d(uuniq).T, accel_gas))
-    ##Splitting gas data into manageable chunks -- to avoid using too much memory
-    print("Saving aux data {0}".format(time.time()))
-    with h5py.File("aux.hdf5", "w") as ff:
-        for ii, row in enumerate(partpos):
-            if tage_myr[ii] > 1.0:
-                continue
-            d = xuniq - row
-            d = np.sum(d * d, axis=1) ** .5
-            gas_data_part = gas_data[d < args.cutoff]
-            ff.create_dataset("{0}".format(ii), data=gas_data_part)
-
-    # shm = create_shared(gas_data)
-    # dim = gas_data.shape
-    print("Gas data shape", gas_data.shape)
-
     ##Acceleration of stars/sinks. Accelerations due to gas are computed with tree. Acceleration due to sinks are
     ##computed with direct summation
     print("Accel of stars {0}".format(time.time()))
@@ -329,18 +290,15 @@ def main():
                                                                                args.tides_factor)
     halo_masses_sing = np.zeros(len(partpos))
     max_dist_sing = np.zeros(len(partpos))
-    bash_command("rm " + halo_mass_name + ".hdf5")
     gas_dat_h5 = h5py.File(halo_mass_name + ".hdf5", 'a')
 
+    myglobals.gas_data = (xuniq, vuniq, muniq, huniq, uuniq, accel_gas)
     part_data = (partpos, partvels, partmasses, partsink, partids, accel_stars, tage_myr)
-    f_to_iter = functools.partial(get_mass_bound_manager, part_data, "aux.hdf5",
+    f_to_iter = functools.partial(get_mass_bound_manager, part_data,
                                   cutoff=cutoff, non_pair=non_pair, compress=args.compress, tides_factor=args.tides_factor)
     print("Pool {0}".format(time.time()))
     sys.stdout.flush()
-
-    ctx_in_main = multiprocessing.get_context('spawn')
-    # ctx_in_main.set_forkserver_preload(['myglobals'])
-    with ctx_in_main.Pool(56) as pool:
+    with multiprocessing.Pool(10) as pool:
         for ii, halo_dat_full in enumerate(pool.map(f_to_iter, range(len(halo_masses_sing)))):
             halo_masses_sing[ii], max_dist_sing[ii], halo_dat = halo_dat_full
             gas_dat_h5.create_dataset("halo_{0}".format(partids[ii]), data=halo_dat)
