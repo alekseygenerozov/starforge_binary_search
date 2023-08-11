@@ -208,9 +208,6 @@ def get_gas_mass_bound_refactor(sys1,  sinkpos, cutoff=0.5, non_pair=False, comp
     halo_mass_bins = np.cumsum(halo_mass_bins)
     return halo_mass, d_max, bound_index, .5 * (rad_bins[:-1] + rad_bins[1:]), halo_mass_bins[1:]
 
-
-
-
 def get_mass_bound_manager(part_data, ii, **kwargs):
     partpos, partvels, partmasses, partsink, partids, accel_stars, tage_myr = part_data
     if tage_myr[ii] >= 1.0:
