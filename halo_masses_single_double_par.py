@@ -15,6 +15,7 @@ import starforge_constants as sfc
 import time
 from multiprocessing import shared_memory
 import subprocess
+from numba import njit
 # import myglobals
 # myglobals.gas_data = []
 # set_start_method('forkserver', force=True)
@@ -245,6 +246,14 @@ def get_mass_bound_manager(part_data, aux, ii, **kwargs):
 
     return halo_mass, max_dist, np.transpose((rad_bins, halo_mass_bins))
 
+@njit("bool_[:](float64[:,:], float64[:], float64)")
+def get_close_dist(xuniq, row, cutoff):
+    d = xuniq - row
+    d = np.sum(d * d, axis=1) ** .5
+
+    return d < cutoff
+
+
 def main():
     ##Fix GN from the simulation data rather than hard-coding...
     parser = argparse.ArgumentParser(description="Parse starforge snapshot, and get multiple data.")
@@ -307,9 +316,8 @@ def main():
         for ii, row in enumerate(partpos):
             if tage_myr[ii] > 1.0:
                 continue
-            d = xuniq - row
-            d = np.sum(d * d, axis=1) ** .5
-            gas_data_part = gas_data[d < args.cutoff]
+            filt1 = get_close_dist(xuniq, row, args.cutoff)
+            gas_data_part = gas_data[filt1]
             ff.create_dataset("{0}".format(ii), data=gas_data_part)
 
     # shm = create_shared(gas_data)
