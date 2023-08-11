@@ -13,10 +13,15 @@ import multiprocessing
 import functools
 import starforge_constants as sfc
 import time
+import subprocess
 
 import myglobals
 myglobals.gas_data = []
 
+def bash_command(cmd, **kwargs):
+	'''Run command from the bash shell'''
+	process = subprocess.Popen(['/bin/bash', '-c', cmd],  **kwargs)
+	return process.communicate()[0]
 
 def PE(xc, mc, hc):
     """ xc - array of positions
@@ -277,6 +282,7 @@ def main():
                                                                                args.tides_factor)
     halo_masses_sing = np.zeros(len(partpos))
     max_dist_sing = np.zeros(len(partpos))
+    bash_command("rm " + halo_mass_name + ".hdf5")
     gas_dat_h5 = h5py.File(halo_mass_name + ".hdf5", 'a')
 
     myglobals.gas_data = (xuniq, vuniq, muniq, huniq, uuniq, accel_gas)
