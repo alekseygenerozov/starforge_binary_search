@@ -18,16 +18,6 @@ import myglobals
 myglobals.gas_data = []
 
 
-def create_shared(tmp_arr):
-    """
-    Return new array that will be stored in shared memory.
-    """
-    shm = shared_memory.SharedMemory(create=True, size=tmp_arr.nbytes)
-    tmp_arr = np.ndarray(tmp_arr.shape, dtype=tmp_arr.dtype, buffer=shm.buf)
-    tmp_arr_s = tmp_arr[:]
-
-    return tmp_arr_s
-
 def PE(xc, mc, hc):
     """ xc - array of positions
         mc - array of masses
