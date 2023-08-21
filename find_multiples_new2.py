@@ -379,7 +379,6 @@ class cluster(object):
     def get_system_mult(self):
         return np.array([ss.multiplicity for ss in self.systems])
 
-    ##TO DO: ONLY GET XX CLOSEST STARS RATHER THAN ALL COMBOS!!!
     def _calculate_orbits(self):
         """
         Computes pairwise orbits in each subregion, populating orb_all.
@@ -397,14 +396,12 @@ class cluster(object):
             soft = self.get_system_soft[region]
             idx = np.array(range(len(self.systems)))[region]
             orb_region = []
-
-            for i in range(len(pos)):
-                d = pos - pos[i]
-                d = np.sum(d * d, axis=1) ** .5
-                ord = np.argsort(d)
-                for j in ord[1:51]:
-                    orb_region.append(np.concatenate((get_orbit(pos[i], pos[j], vel[i], vel[j], mass[i], mass[j], h1=soft[0], h2=soft[1]),
-                                                      [self.systems[idx[i]].ids[0], self.systems[idx[j]].ids[0], self.systems[idx[i]].sysID, self.systems[idx[j]].sysID])))
+            combos_all = np.array(list(combinations(list(range(len(pos))), 2)))
+            for jj, combo in enumerate(combos_all):
+                i = combo[0]
+                j = combo[1]
+                orb_region.append(np.concatenate((get_orbit(pos[i], pos[j], vel[i], vel[j], mass[i], mass[j], h1=soft[0], h2=soft[1]),
+                                                  [self.systems[idx[i]].ids[0], self.systems[idx[j]].ids[0], self.systems[idx[i]].sysID, self.systems[idx[j]].sysID])))
             self.orb_all.append(np.array(orb_region))
 
     def _find_binaries_all(self):
