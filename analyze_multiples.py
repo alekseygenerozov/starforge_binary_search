@@ -229,12 +229,14 @@ def create_sys_lookup_table(r1, r2, base_sink, start_snap, end_snap):
                 w1_row, w1_idx = snap_lookup(tmp_sink, elem1)
                 if len(tmp_orb) == 0:
                     sma1 = -1
+                    ecc1 = -1
                 ##Using mass to identify particles -- In principle may not give a unique match...
                 else:
                     sel1 = np.isclose(m1, tmp_orb[:, 10:12])
                     sel1 = np.array([row[0] or row[1] for row in sel1])
                     sma1 = tmp_orb[sel1][0][0]
-                lookup.append([ss, elem1, ii, len(ids_a[ii]), m1, w1_row[-1], sma1])
+                    ecc1 = tmp_orb[sel1][0][1]
+                lookup.append([ss, elem1, ii, len(ids_a[ii]), m1, w1_row[-1], sma1, ecc1])
 
     return np.array(lookup)
 
