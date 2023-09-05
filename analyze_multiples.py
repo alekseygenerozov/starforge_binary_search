@@ -9,8 +9,14 @@ sys.path.append("/home/aleksey/Dropbox/projects/Hagai_projects/star_forge")
 import find_multiples_new2, halo_masses_single_double_par
 from find_multiples_new2 import cluster, system
 import h5py
+# sys.path.append("/home/aleksey/code/python")
 from bash_command import bash_command as bc
 
+LOOKUP_SNAP = 0
+LOOKUP_PID = 1
+LOOKUP_MTOT = 4
+LOOKUP_M = 5
+LOOKUP_SMA = 6
 
 def snap_lookup(tmp_dat, pid):
     tmp_idx = np.where(tmp_dat[:, 0].astype(int) == pid)[0][0]
@@ -111,7 +117,7 @@ def get_unique_binaries(r1, r2, start_snap, end_snap):
     times_all = []
     nsys = []
 
-    for ss in range(start_snap, end_snap):
+    for ss in range(start_snap, end_snap + 1):
         try:
             with open(r1 + "{0:03d}".format(ss) + r2, "rb") as ff:
                 cl_a = pickle.load(ff)
@@ -213,7 +219,7 @@ def create_sys_lookup_table(r1, r2, base_sink, start_snap, end_snap):
     :rtype: np.ndarray
     """
     lookup = []
-    for ss in range(start_snap, end_snap):
+    for ss in range(start_snap, end_snap + 1):
         try:
             with open(r1 + "{0:03d}".format(ss) + r2, "rb") as ff:
                 cl = pickle.load(ff)
@@ -261,6 +267,83 @@ def mult_filt(bin_ids, sys_lookup, ic):
 
     return mults_filt
 
+def get_first_snap_idx(base_sink, start_snap, end_snap):
+    """
+    Get lookup table of the first snapshot index used
+    """
+    tmp_snap_idx = []
+    for ss in range(start_snap, end_snap + 1):
+        tmp_sink = np.atleast_2d(np.genfromtxt(base_sink + "{0:03d}.sink".format(ss)))
+        tmp_idx = tmp_sink[:, 0].astype(int)
+        tmp_snap = [ss for ii in range(len(tmp_idx))]
+        tmp_snap_idx.append(np.transpose([tmp_idx, tmp_sink[:, 1], tmp_sink[:, 2], tmp_sink[:, 3], tmp_snap]))
+
+    tmp_snap_idx = np.vstack(tmp_snap_idx)
+    tmp_uu, tmp_ui = np.unique(tmp_snap_idx[:, 0], return_index=True)
+    first_snap_idx = tmp_snap_idx[tmp_ui]
+
+    return first_snap_idx
+
+def get_age_diff(bin_ids, first_snap_idx):
+    """
+    Age differences between the binary stars
+    """
+    delta_snap = np.zeros(len(bin_ids))
+    for ii, pp in enumerate(bin_ids):
+        row = list(pp)
+        w1_row, w1 = snap_lookup(first_snap_idx, row[0])
+        snap1 = first_snap_idx[w1, -1]
+
+        w1_row, w1 = snap_lookup(first_snap_idx, row[1])
+        snap2 = first_snap_idx[w1, -1]
+
+        delta_snap[ii] = max(snap1, snap2) - min(snap1, snap2)
+    return delta_snap
+
+def get_age_diff_mult(r1, r2, end_snap, first_snap_idx):
+    """
+    Get difference between the final multiples
+    """
+
+    with open(r1 + "{0:03d}".format(end_snap) + r2, "rb") as ff:
+        cl = pickle.load(ff)
+
+    mults_b = np.array([sys1.multiplicity for sys1 in cl.systems])
+    ids_b = np.array([sys1.ids for sys1 in cl.systems], dtype=object)
+
+    end_ms = ids_b[mults_b > 2]
+    delta_end_mults = np.zeros(len(end_ms))
+    for ii, pp in enumerate(end_ms):
+        row = list(pp)
+        snaps = []
+        for ppp in row:
+            w1_row, w1 = snap_lookup(first_snap_idx, ppp)
+            snap1 = first_snap_idx[w1, -1]
+            snaps.append(snap1)
+        delta_end_mults[ii] = np.max(snaps) - np.min(snaps)
+
+    return delta_end_mults
+
+def get_bin_histories(bin_ids, lookup):
+    """
+    Orbital elements of unique binaries *while they are togther* -- Possibly as part of a higher-order multiple...
+    """
+    bin_histories = []
+
+    for row_s in bin_ids:
+        id1, id2 = list(row_s)
+        tmp_dat1 = lookup[lookup[:, LOOKUP_PID].astype(int) == id1]
+        tmp_dat2 = lookup[lookup[:, LOOKUP_PID].astype(int) == id2]
+        common_times = np.intersect1d(tmp_dat1[:, 0], tmp_dat2[:, 0], return_indices=True)
+        tmp_dat1 = tmp_dat1[common_times[1]]
+        tmp_dat2 = tmp_dat2[common_times[2]]
+        tmp_filt = (tmp_dat1[:, LOOKUP_SMA] == tmp_dat2[:, LOOKUP_SMA])
+
+        bin_histories.append(np.hstack((tmp_dat1[tmp_filt], tmp_dat2[tmp_filt])))
+
+    bin_histories_stack = np.vstack(bin_histories)
+    return bin_histories_stack
+
 def main():
     sim_tag = "M2e4_R10_S0_T1_B0.1_Res271_n2_sol0.5_42"
     base = "/home/aleksey/Dropbox/projects/Hagai_projects/star_forge/{0}/".format(sim_tag)
@@ -269,8 +352,9 @@ def main():
     base_sink = base + "/sinkprop/{0}_snapshot_".format(sim_tag)
     r2_nosuff = r2.replace(".p", "")
 
+    start_snap_sink = 48
     start_snap = 100
-    end_snap = 200
+    end_snap = 489
     aa = "analyze_multiples_output_{0}/".format(r2_nosuff)
     bc.bash_command("mkdir " + base + aa)
     with open(base + aa + "/mult_data_path", "w") as ff:
@@ -296,13 +380,13 @@ def main():
 
     ##Binary classification -- Store output on disc. If it already exists then skip.
     try:
-        classes = np.load(base + aa + "/classes.npz", allow_pickle=True)
+        classes = np.load(base + aa + "/classes.npz", allow_pickle=True)["arr_0"]
     except FileNotFoundError:
         classes = classify_binaries(r1, r2, bin_ids, first_snapshots)
         np.savez(base + aa + "/classes", classes)
     ##Table to lookup systems by particle ids
     try:
-        sys_lookup = np.load(base + aa + "/system_lookup_table.npz", allow_pickle=True)
+        sys_lookup = np.load(base + aa + "/system_lookup_table.npz", allow_pickle=True)["arr_0"]
     except FileNotFoundError:
         sys_lookup = create_sys_lookup_table(r1, r2, base_sink, start_snap, end_snap)
         np.savez(base + aa + "/system_lookup_table", sys_lookup)
@@ -310,12 +394,33 @@ def main():
     fate_tags = np.empty(len(bin_ids), dtype='S4')
     final_snap = np.empty(len(bin_ids), dtype=int)
     for ii, row in enumerate(bin_ids):
-        fate_tags[ii] = get_fate(r1, r2, list(row), end_snap - 1)
+        fate_tags[ii] = get_fate(r1, r2, list(row), end_snap)
         tmp_idx = np.where(bin_ids_all == row)[0]
         final_snap[ii] = np.max(times_all[tmp_idx])
     np.savez(base + aa + "/fate_tags", fate_tags)
     np.savez(base + aa + "/bin_final_snap", final_snap)
     np.savez(base + aa + "/mults_filt", mult_filt(bin_ids, sys_lookup, ic))
+    first_snap_idx = get_first_snap_idx(base_sink, start_snap_sink, end_snap)
+    delta_age = get_age_diff(bin_ids, first_snap_idx)
+    np.savez(base + aa + "/delta_age_bins", delta_age)
+    delta_age_mult = get_age_diff_mult(r1, r2, end_snap, first_snap_idx)
+    np.savez(base + aa + "/delta_age_mults", delta_age_mult)
+    bin_histories_stack = get_bin_histories(bin_ids, sys_lookup)
+    np.savez(base + aa + "/bin_histories_stack", bin_histories_stack)
+    ##Getting the final snapshot...
+    with open(r1 + str(end_snap) + r2, "rb") as ff:
+        cl_a = pickle.load(ff)
+
+    mults_a = np.array([sys1.multiplicity for sys1 in cl_a.systems])
+    ids_a = np.array([set(sys1.ids) for sys1 in cl_a.systems], dtype=object)
+    final_bins = ids_a[mults_a == 2]
+    final_bin_histories_stack = get_bin_histories(final_bins, sys_lookup)
+    np.savez(base + aa + "/final_bin_histories_stack", final_bin_histories_stack)
+
+    final_bins_arr_id = np.array([np.where(bin_ids == row)[0][0] for row in final_bins])
+    np.savez(base + aa + "/final_bins_arr_id", final_bins_arr_id)
+
+
 #######################################################################################################################################################################
 
 
