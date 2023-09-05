@@ -56,22 +56,22 @@ for ss in range(start_snap, end_snap + 1):
 
     for jj, test_ids_s in enumerate(bin_ids_unique):
         test_ids = list(test_ids_s)
-        if np.isin(test_ids[0], tmp_sink[:,0].astype(int)):
+        if np.isin(test_ids[0], tmp_sink[:, 0].astype(int)):
             w1 = snap_lookup(tmp_sink, test_ids[0])[1]
-            p1 = tmp_sink[w1,1:4]
-            v1 = tmp_sink[w1,4:7]
+            p1 = tmp_sink[w1, 1:4]
+            v1 = tmp_sink[w1, 4:7]
             h1 = tmp_sink[w1, 7]
             m1 = tmp_sink[w1, -1]
-            m1_gas = lookup[(lookup[:,LOOKUP_PID]==test_ids[0]) & (lookup[:,LOOKUP_SNAP]==ss)][0,LOOKUP_MTOT]
+            m1_gas = lookup[(lookup[:, LOOKUP_PID] == test_ids[0]) & (lookup[:, LOOKUP_SNAP] == ss)][0, LOOKUP_MTOT]
         else: 
             continue
-        if np.isin(test_ids[1], tmp_sink[:,0].astype(int)):
+        if np.isin(test_ids[1], tmp_sink[:, 0].astype(int)):
             w1 = snap_lookup(tmp_sink, test_ids[1])[1]
             p2 = tmp_sink[w1, 1:4]
             v2 = tmp_sink[w1, 4:7]
             h2 = tmp_sink[w1, 7]
             m2 = tmp_sink[w1, -1]
-            m2_gas = lookup[(lookup[:,LOOKUP_PID]==test_ids[1]) & (lookup[:,LOOKUP_SNAP]==ss)][0,LOOKUP_MTOT]
+            m2_gas = lookup[(lookup[:, LOOKUP_PID] == test_ids[1]) & (lookup[:, LOOKUP_SNAP] == ss)][0, LOOKUP_MTOT]
         else:
             continue
         ##Make sure we get primary/secondary...    
@@ -143,7 +143,7 @@ for jj, test_ids_s in enumerate(bin_ids_unique):
     tmp_sink = np.atleast_2d(np.genfromtxt(base_sink + "{0:03d}.sink".format(ss)))
 
     pos_all_stars = tmp_sink[:, 1:4] - coms[jj, ss]
-    tmp_filt = (tmp_sink[:, 0]!=test_ids[0]) & (tmp_sink[:, 0]!=test_ids[1])
+    tmp_filt = (tmp_sink[:, 0] != test_ids[0]) & (tmp_sink[:, 0] != test_ids[1])
     pos_all_stars = pos_all_stars[tmp_filt]
     tmp_sink = tmp_sink[tmp_filt]
     order = np.argsort(np.sum(pos_all_stars * pos_all_stars, axis=1))
