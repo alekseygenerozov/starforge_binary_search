@@ -69,9 +69,9 @@ for jj in range(len(bin_ids)):
                   color=cols[kk], alpha=alphas[kk])
         axs[0].loglog(tmp_sys_idx_ref[:, LOOKUP_SNAP] * snap_interval, tmp_sys_idx_ref[:, LOOKUP_SMA] * cgs.pc / cgs.au,
                   color=cols[kk], alpha=alphas[kk], linestyle='--')
-        axs[1].loglog(tmp_sys_idx_ref[:, LOOKUP_SNAP] * snap_interval, tmp_sys_idx_ref[:, LOOKUP_MTOT],
+        axs[1].loglog(tmp_sys_idx_ref[:, LOOKUP_SNAP] * snap_interval, tmp_sys_idx[:, LOOKUP_MTOT],
                   color=cols[kk], alpha=alphas[kk])
-        axs[1].loglog(tmp_sys_idx_ref[:, LOOKUP_SNAP] * snap_interval, tmp_sys_idx_ref[:, LOOKUP_M],
+        axs[1].loglog(tmp_sys_idx_ref[:, LOOKUP_SNAP] * snap_interval, tmp_sys_idx[:, LOOKUP_M],
                   color=cols[kk], alpha=alphas[kk], linestyle='--')
         fig.savefig(base + aa + "/sma_history_{0:03d}.pdf".format(jj))
 

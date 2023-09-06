@@ -36,18 +36,18 @@ for ss in range(start_snap, end_snap + 1):
     tmp_sink = np.atleast_2d(np.genfromtxt(base_sink + "{0:03d}.sink".format(ss)))
     sinks_all[ss] = (tmp_sink)
 
-coms = np.ones((len(bin_ids_unique), end_snap, 3)) * np.inf
-vel_all1 = np.ones((len(bin_ids_unique), end_snap, 3)) * np.inf
-vel_all2 = np.ones((len(bin_ids_unique), end_snap, 3)) * np.inf
-seps_all = np.ones((len(bin_ids_unique), end_snap, 3)) * np.inf 
-v_sec_all = np.ones((len(bin_ids_unique), end_snap, 3)) * np.inf 
-v_prim_all = np.ones((len(bin_ids_unique), end_snap, 3)) * np.inf 
+coms = np.ones((len(bin_ids_unique), end_snap + 1, 3)) * np.inf
+vel_all1 = np.ones((len(bin_ids_unique), end_snap + 1, 3)) * np.inf
+vel_all2 = np.ones((len(bin_ids_unique), end_snap + 1, 3)) * np.inf
+seps_all = np.ones((len(bin_ids_unique), end_snap + 1, 3)) * np.inf
+v_sec_all = np.ones((len(bin_ids_unique), end_snap + 1, 3)) * np.inf
+v_prim_all = np.ones((len(bin_ids_unique), end_snap + 1, 3)) * np.inf
 
-ms_all1 = np.ones((len(bin_ids_unique), end_snap)) * np.inf 
-smas = np.ones((len(bin_ids_unique), end_snap)) * np.inf 
-ms_all2 = np.ones((len(bin_ids_unique), end_snap)) * np.inf 
-cang1 = np.ones((len(bin_ids_unique), end_snap)) * np.inf
-cang2 = np.ones((len(bin_ids_unique), end_snap)) * np.inf 
+ms_all1 = np.ones((len(bin_ids_unique), end_snap + 1)) * np.inf
+smas = np.ones((len(bin_ids_unique), end_snap + 1)) * np.inf
+ms_all2 = np.ones((len(bin_ids_unique), end_snap + 1)) * np.inf
+cang1 = np.ones((len(bin_ids_unique), end_snap + 1)) * np.inf
+cang2 = np.ones((len(bin_ids_unique), end_snap + 1)) * np.inf
 
 ##Getting coms of all the capture candidates at all times 
 for ss in range(start_snap, end_snap + 1):
@@ -119,7 +119,7 @@ fig.savefig(base + aa + "/ang2_plot.pdf")
 
 
 ##Getting indices where stars are actually in the same system 
-s_common = np.zeros((len(bin_ids_unique), end_snap))
+s_common = np.zeros((len(bin_ids_unique), end_snap + 1))
 
 for jj, test_ids_s in enumerate(bin_ids_unique):
     test_ids = list(test_ids_s)
