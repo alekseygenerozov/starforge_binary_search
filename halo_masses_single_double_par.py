@@ -213,7 +213,7 @@ def get_mass_bound_manager(part_data, ii, **kwargs):
     res = get_gas_mass_bound_refactor(sys_tmp, partpos, **kwargs)
     halo_mass, max_dist, bound_index, rad_bins, halo_mass_bins = res
 
-    return halo_mass, max_dist, np.transpose((rad_bins, halo_mass_bins))
+    return halo_mass, max_dist, bound_index
 
 def main():
     ##Fix GN from the simulation data rather than hard-coding...
