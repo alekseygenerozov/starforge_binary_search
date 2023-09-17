@@ -21,8 +21,3 @@ export LAUNCHER_WORKDIR=/work2/09543/aleksey2/frontera/
 export LAUNCHER_JOB_FILE=run_batch_aux
 
 ${LAUNCHER_DIR}/paramrun
-
-
-    
-
-
