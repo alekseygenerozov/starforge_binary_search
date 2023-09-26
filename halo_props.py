@@ -94,11 +94,11 @@ def main():
     with h5py.File(halo_mass_name + ".hdf5", 'a') as gas_dat_h5:
         for ii in range(len(partids)):
             halo_idx = gas_dat_h5["halo_{0}".format(partids[ii])]
-            gas_dat_h5.add_dataset("halo_{0}_rho".format(partids[ii]), denuniq[halo_idx])
-            gas_dat_h5.add_dataset("halo_{0}_x".format(xuniq[ii]), xuniq[halo_idx])
-            gas_dat_h5.add_dataset("halo_{0}_x".format(vuniq[ii]), vuniq[halo_idx])
-            gas_dat_h5.add_dataset("halo_{0}_u".format(uuniq[ii]), uuniq[halo_idx])
-            gas_dat_h5.add_dataset("halo_{0}_m".format(muniq[ii]), uuniq[halo_idx])
+            gas_dat_h5.create_dataset("halo_{0}_rho".format(partids[ii]), data=denuniq[halo_idx])
+            gas_dat_h5.create_dataset("halo_{0}_x".format(xuniq[ii]), data=xuniq[halo_idx])
+            gas_dat_h5.create_dataset("halo_{0}_x".format(vuniq[ii]), data=vuniq[halo_idx])
+            gas_dat_h5.create_dataset("halo_{0}_u".format(uuniq[ii]), data=uuniq[halo_idx])
+            gas_dat_h5.create_dataset("halo_{0}_m".format(muniq[ii]), data=muniq[halo_idx])
 
 
 
