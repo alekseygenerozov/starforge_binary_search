@@ -68,13 +68,15 @@ def main():
     ax.set_ylabel("Y (pc)")
 
     filt_new_stars = np.in1d(partids, first_snap_idx[first_snap_idx[:, -1] == int(snap_idx)][:, 0])
-    ax.scatter((partpos[:, 0] - center[0])[filt_new_stars], (partpos[:, 1] - center[1])[filt_new_stars], color='0.5')
+    if len((partpos[:, 0] - center[0])[filt_new_stars]) > 0:
+        ax.scatter((partpos[:, 0] - center[0])[filt_new_stars], (partpos[:, 1] - center[1])[filt_new_stars], color='0.5')
 
     bin1_sel = bin1_pos[first_together == int(snap_idx)]
     bin2_sel = bin2_pos[first_together == int(snap_idx)]
 
-    ax.scatter(bin1_sel[:, 0] - center[0], bin1_sel[:, 1] - center[1], color='k', marker='*')
-    ax.scatter(bin2_sel[:, 0] - center[0], bin2_sel[:, 1] - center[1], color='k', marker='*')
+    if len(bin1_sel) > 0:
+        ax.scatter(bin1_sel[:, 0] - center[0], bin1_sel[:, 1] - center[1], color='k', marker='*')
+        ax.scatter(bin2_sel[:, 0] - center[0], bin2_sel[:, 1] - center[1], color='k', marker='*')
 
     fig.savefig("gas_plot_{0}.pdf".format(snap_idx))
     fig.savefig("gas_plot_{0}.png".format(snap_idx))
