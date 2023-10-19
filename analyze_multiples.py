@@ -18,8 +18,8 @@ LOOKUP_MTOT = 4
 LOOKUP_M = 5
 LOOKUP_SMA = 6
 
-def snap_lookup(tmp_dat, pid):
-    tmp_idx = np.where(tmp_dat[:, 0].astype(int) == pid)[0][0]
+def snap_lookup(tmp_dat, pid, ID_COLUMN=0):
+    tmp_idx = np.where(tmp_dat[:, ID_COLUMN].astype(int) == pid)[0][0]
     return tmp_dat[tmp_idx], tmp_idx
 
 
@@ -147,6 +147,40 @@ def get_unique_binaries(r1, r2, start_snap, end_snap):
                                   mass_i1, mass_i2, sep_i)), np.concatenate(bin_ids_all), np.concatenate(times_all),\
         nsys
 
+def get_unique_triples(r1, r2, start_snap, end_snap):
+    """
+    Get the unique binaries from a series of snapshots...
+
+    :param string r1: Bases of pickle file name
+    :param string r2: End of pickle file name
+    :param int start_snap: Starting snapshot index
+    :param int end_snap: Ending snapshot index
+
+    :return: (i) List of unique binary ids (ii) List of the first time when they appear
+    """
+    uids = []
+    first_appearance = []
+    outer_idx = []
+    for ss in range(start_snap, end_snap + 1):
+        try:
+            with open(r1 + "{0:03d}".format(ss) + r2, "rb") as ff:
+                cl_a = pickle.load(ff)
+        except FileNotFoundError:
+            continue
+
+        mults_a = np.array([sys1.multiplicity for sys1 in cl_a.systems])
+        hiers_a = np.array([sys1.hierarchy for sys1 in cl_a.systems])
+        ids_a = np.array([set(sys1.ids) for sys1 in cl_a.systems], dtype=object)
+
+        for jj, pp_set in enumerate(ids_a):
+            if (mults_a[jj] == 3) and ~np.isin(pp_set, uids):
+                uids.append(pp_set)
+                first_appearance.append(ss)
+                outer_idx.append(hiers_a[jj].pop())
+
+    ##Also will need to pop outer index from stored hierarchy...
+    return uids, np.array(first_appearance), outer_idx
+
 def classify_binaries(r1, r2, bin_ids, first_snapshots):
     """
     Get the unique binaries from a series of snapshots...
@@ -206,6 +240,59 @@ def classify_binaries(r1, r2, bin_ids, first_snapshots):
 
     return bin_class
 
+def classify_triples(r1, r2, uids, first_snapshots):
+    """
+    Get the unique binaries from a series of snapshots...
+
+    :param string r1: Bases of pickle file name
+    :param string r2: End of pickle file name
+    :param list uids: List of unique binary ids (from function get_unique_binaries)
+    :param list first_snapshots: List of first snapshots where binaries appear (from function get_unique_binaries)
+
+    :return: List of string encoding triple classification.
+    :rtype: List
+    """
+    ##Split this into functions
+    u_class = ['' for ii in range(len(uids))]
+    for ii, pp_set in enumerate(uids):
+        try:
+            with open(r1 + "{0:03d}".format(first_snapshots[ii] - 1) + r2, "rb") as ff:
+                cl = pickle.load(ff)
+        except FileNotFoundError:
+            continue
+
+        pp = list(pp_set)
+        ids_b = np.array([sys1.ids for sys1 in cl.systems], dtype=object)
+        set_b = [set(row) for row in ids_b]
+        ids_b_cat = np.concatenate(ids_b)
+
+        ##System exists in the previous snapshot THIS SHOULD NOT HAPPEN
+        if np.in1d(pp_set, set_b)[0]:
+            continue
+        ##If neither star index is present in previous snapshot we have a primordial binary formed
+        if np.all(~np.in1d(pp, ids_b_cat)):
+            u_class[ii] = 'p'
+            continue
+        ##If only some of the stars existed in the previous snapshot the origin of the binary is ambiguous
+        if not np.all(np.in1d(pp, ids_b_cat)):
+            u_class[ii] = 'sp'
+            continue
+
+        ##Check multiplicity of stars in the previous snapshotor subsequent analysis we only want to consider stars that existed in both snapshots--Not
+        ##sure how to deal with this case perhaps we should add it a third "ambiguous" category
+        tmp_mults = np.zeros(len(pp))
+        ws = np.zeros(len(pp))
+        for jj, ppp in enumerate(pp):
+            w1 = np.where([np.in1d(ppp, row) for row in ids_b])
+            ws[jj] = w1[0][0]
+            tmp_mults[jj] = len(ids_b[w1[0][0]])
+        ##If all of the multiple stars were singles, we consider a capture to have occured
+        if np.isin([1], tmp_mults)[0]:
+            u_class[ii] = 'c'
+            continue
+
+    return u_class
+
 def create_sys_lookup_table(r1, r2, base_sink, start_snap, end_snap):
     """
     Get the unique binaries from a series of snapshots...
@@ -264,6 +351,16 @@ def mult_filt(bin_ids, sys_lookup, ic):
         sys_lookup_sel0 = sys_lookup[(sys_lookup[:, 1] == row_list[0]) & (sys_lookup[:, 0] < t_first[ii])]
         sys_lookup_sel1 = sys_lookup[(sys_lookup[:, 1] == row_list[1]) & (sys_lookup[:, 0] < t_first[ii])]
         mults_filt[ii] = (np.all(sys_lookup_sel0[:, 3] == 1) and np.all(sys_lookup_sel1[:, 3] == 1))
+
+    return mults_filt
+
+##More flxible version of mult_filt
+def mult_filt_id(ids, times, sys_lookup):
+    mults_filt = np.zeros(len(ids))
+
+    for ii in range(len(times)):
+        sys_lookup_sel0 = sys_lookup[(sys_lookup[:, 1] == ids[ii]) & (sys_lookup[:, 0] < times[ii])]
+        mults_filt[ii] = (np.all(sys_lookup_sel0[:, 3] == 1))
 
     return mults_filt
 
@@ -344,6 +441,55 @@ def get_bin_histories(bin_ids, lookup):
     bin_histories_stack = np.vstack(bin_histories)
     return bin_histories_stack
 
+def get_fst(first_snapshot_idx, uids):
+    fst_idx = np.zeros(len(uids)).astype(int)
+    for ii, row in enumerate(uids):
+        row_li = list(row)
+        for tmp_item in row_li:
+            tmp_snap1 = snap_lookup(first_snapshot_idx, tmp_item)[0][-1]
+            fst_idx[ii] = max(tmp_snap1, fst_idx[ii])
+
+    return fst_idx
+
+def get_orbit_fst(base_sink, sys_lookup, fst_idx, uids, outer_idx):
+    smas_all = np.ones(len(uids)) * np.inf
+    for ii, row in enumerate(uids):
+        tmp_snap = fst_idx[ii]
+        if fst_idx[ii] < 100:
+            tmp_snap = 100
+            # continue
+        tmp_sink = np.atleast_2d(np.genfromtxt(base_sink + "{0:03d}.sink".format(tmp_snap)))
+        inner_part = np.array(list(row))
+        inner_part = inner_part[~np.in1d(inner_part, [outer_idx[ii]])]
+        inner_dat_all = []
+        for pp in inner_part:
+            ##NEED TO USE SYS_LOOKUP TABLE TO GET MASSES INCLUDING GAS...
+            m_gas = sys_lookup[(sys_lookup[:, LOOKUP_PID] == pp) & (sys_lookup[:, LOOKUP_SNAP] == tmp_snap)][0, LOOKUP_MTOT]
+            inner_dat_all.append(snap_lookup(tmp_sink, pp)[0])
+            inner_dat_all[-1][-1] = m_gas
+
+        inner_dat_all = np.array(inner_dat_all)
+        p1, v1, h1, m1_gas = get_com(np.atleast_2d(inner_dat_all))
+        outer_dat_all = snap_lookup(tmp_sink, outer_idx[ii])[0]
+        p2, v2, h2, m2_gas = outer_dat_all[1:4], outer_dat_all[4:7], outer_dat_all[7], outer_dat_all[-1]
+        ##Once again including gas masses.
+        m2_gas = sys_lookup[(sys_lookup[:, LOOKUP_PID] == outer_idx[ii]) & (sys_lookup[:, LOOKUP_SNAP] == tmp_snap)][0, LOOKUP_MTOT]
+
+        tmp_orb = find_multiples_new2.get_orbit(p1, p2, v1, v2, m1_gas, m2_gas, h1=h1, h2=h2)
+        ##Get just the semimajor axis for now...add more data later
+        smas_all[ii] = tmp_orb[0]
+
+    return smas_all
+
+##Maybe should also add treatment of softening length
+def get_com(dat):
+    m1 = np.sum(dat[:, -1])
+    pos1 = np.dot(dat[:, -1], dat[:, 1:4]) / m1
+    vel1 = np.dot(dat[:, -1], dat[:, 4:7]) / m1
+    h1 = np.sum(dat[:, 7])
+
+    return pos1, vel1, h1, m1
+
 def main():
     sim_tag = "M2e4_R10_S0_T1_B0.1_Res271_n2_sol0.5_42"
     base = "/home/aleksey/Dropbox/projects/Hagai_projects/star_forge/{0}/".format(sim_tag)
@@ -378,6 +524,8 @@ def main():
         np.savez(base + aa + "/nsys", nsys)
     first_snapshots = ic[:, 0].astype(int)
 
+    ##To add function which extracts FST INFO!!
+
     ##Binary classification -- Store output on disc. If it already exists then skip.
     try:
         classes = np.load(base + aa + "/classes.npz", allow_pickle=True)["arr_0"]
@@ -400,6 +548,7 @@ def main():
     np.savez(base + aa + "/fate_tags", fate_tags)
     np.savez(base + aa + "/bin_final_snap", final_snap)
     np.savez(base + aa + "/mults_filt", mult_filt(bin_ids, sys_lookup, ic))
+    ##Refactor name(!) Too similar to first_snapshots?!
     first_snap_idx = get_first_snap_idx(base_sink, start_snap_sink, end_snap)
     delta_age = get_age_diff(bin_ids, first_snap_idx)
     np.savez(base + aa + "/delta_age_bins", delta_age)
@@ -420,6 +569,21 @@ def main():
     final_bins_arr_id = np.array([np.where(bin_ids == row)[0][0] for row in final_bins])
     np.savez(base + aa + "/final_bins_arr_id", final_bins_arr_id)
 
+    fst_idx = get_fst(first_snap_idx, bin_ids)
+    np.savez(base + aa + "/fst", fst_idx)
+
+    outer_idx = [list(row)[1] for row in bin_ids]
+    first_snap_orb = get_orbit_fst(base_sink, sys_lookup, fst_idx, bin_ids, outer_idx)
+    np.savez(base + aa + "/fst_sma", first_snap_orb)
+
+    uids, ic, outer_idx = get_unique_triples(r1, r2, start_snap, end_snap)
+    fst_idx = get_fst(first_snap_idx, uids)
+    tri_class = classify_triples(r1, r2, uids, ic.astype(int))
+    np.savez(base + aa + "/tri_ids", uids)
+    np.savez(base + aa + "/tri_class", tri_class)
+    first_snap_orb = get_orbit_fst(base_sink, sys_lookup, fst_idx, uids, outer_idx)
+    np.savez(base + aa + "/tri_fst_sma", first_snap_orb)
+    np.savez(base + aa + "/tri_mults_filt", mult_filt_id(uids, ic, sys_lookup))
 
 #######################################################################################################################################################################
 
