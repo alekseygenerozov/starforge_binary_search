@@ -45,9 +45,14 @@ def main():
     partpos = partpos.astype(np.float64)
     partmasses = partmasses.astype(np.float64)
     partsink = partsink.astype(np.float64)
-
     center = np.median(xuniq, axis=0)
-    xuniq = xuniq - center
+    xuniq -= center
+
+    rmax = 20
+    radius_cut = np.sum(xuniq * xuniq, axis=1) < (rmax * rmax)
+    xuniq = xuniq[radius_cut]
+    muniq = muniq[radius_cut]
+    huniq = huniq[radius_cut]
 
     bin1_pos = np.genfromtxt("bin1_pos" + args.ptag)
     bin2_pos = np.genfromtxt("bin2_pos" + args.ptag)
@@ -55,12 +60,12 @@ def main():
     first_together = np.genfromtxt("first_together" + args.ptag)
 
     M = Meshoid(xuniq, muniq, huniq)
-    rmax = 10
     res = 800
-    X = Y = np.linspace(-rmax, rmax, res)
+    X = np.linspace(-rmax, rmax, res)
+    Y = np.linspace(-rmax, rmax, res)
     X, Y = np.meshgrid(X, Y)
     fig, ax = plt.subplots(figsize=(8, 8))
-    sigma_gas_msun_pc2 = M.SurfaceDensity(M.m, center=np.zeros(3), size=40., res=res)  # *1e4
+    sigma_gas_msun_pc2 = M.SurfaceDensity(M.m, center=np.zeros(3), size=2. * rmax, res=res)  # *1e4
     p = ax.pcolormesh(X, Y, sigma_gas_msun_pc2, norm=colors.LogNorm(vmin=.1, vmax=1e3))
     ax.set_aspect('equal')
     fig.colorbar(p, label=r"$\Sigma_{gas}$ $(\rm M_\odot\,pc^{-2})$")
@@ -69,14 +74,14 @@ def main():
 
     filt_new_stars = np.in1d(partids, first_snap_idx[first_snap_idx[:, -1] == int(snap_idx)][:, 0])
     if len((partpos[:, 0] - center[0])[filt_new_stars]) > 0:
-        ax.scatter((partpos[:, 0] - center[0])[filt_new_stars], (partpos[:, 1] - center[1])[filt_new_stars], color='0.5')
+        ax.scatter((partpos[:, 0] - center[0])[filt_new_stars], (partpos[:, 1] - center[1])[filt_new_stars], color='0.5', s=3)
 
     bin1_sel = bin1_pos[first_together == int(snap_idx)]
     bin2_sel = bin2_pos[first_together == int(snap_idx)]
 
     if len(bin1_sel) > 0:
-        ax.scatter(bin1_sel[:, 0] - center[0], bin1_sel[:, 1] - center[1], color='k', marker='*')
-        ax.scatter(bin2_sel[:, 0] - center[0], bin2_sel[:, 1] - center[1], color='k', marker='*')
+        ax.scatter(bin1_sel[:, 0] - center[0], bin1_sel[:, 1] - center[1], color='k', marker='*', s=3)
+        ax.scatter(bin2_sel[:, 0] - center[0], bin2_sel[:, 1] - center[1], color='k', marker='*', s=3)
 
     fig.savefig("gas_plot_{0}.pdf".format(snap_idx))
     fig.savefig("gas_plot_{0}.png".format(snap_idx))
