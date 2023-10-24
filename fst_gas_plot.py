@@ -74,17 +74,16 @@ def main():
 
     filt_new_stars = np.in1d(partids, first_snap_idx[first_snap_idx[:, -1] <= int(snap_idx)][:, 0])
     if len((partpos[:, 0] - center[0])[filt_new_stars]) > 0:
-        ax.scatter((partpos[:, 0] - center[0])[filt_new_stars], (partpos[:, 1] - center[1])[filt_new_stars], color='0.5', s=3)
+        ax.scatter((partpos[:, 0] - center[0])[filt_new_stars], (partpos[:, 1] - center[1])[filt_new_stars], color='0.5', s=3, alpha=0.5)
 
     bin_sel = bin_ids[(first_together <= int(snap_idx))]
     ##Only plot binary stars that have not been dissociated yet??
     for row in bin_sel:
         row_li = list(row)
-
         pos1 = partpos[np.where(partids == row_li[0])[0]]
         pos2 = partpos[np.where(partids == row_li[1])[0]]
-        ax.plot(pos1[0] - center[0], pos1[1] - center[1])
-        ax.plot(pos2[0] - center[0], pos2[1] - center[1])
+        ax.scatter(pos1[:, 0] - center[0], pos1[:, 1] - center[1], c='k', s=3, alpha=0.5)
+        ax.scatter(pos2[:, 0] - center[0], pos2[:, 1] - center[1], c='k', s=3, alpha=0.5)
 
 
     fig.savefig("gas_plot_{0}.pdf".format(snap_idx))
