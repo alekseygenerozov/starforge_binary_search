@@ -54,10 +54,10 @@ def main():
     muniq = muniq[radius_cut]
     huniq = huniq[radius_cut]
 
-    bin1_pos = np.genfromtxt("bin1_pos" + args.ptag)
-    bin2_pos = np.genfromtxt("bin2_pos" + args.ptag)
     first_snap_idx = np.genfromtxt("first_snap_idx" + args.ptag)
     first_together = np.genfromtxt("first_together" + args.ptag)
+    bin_ids = np.load("unique_bin_ids.npz", allow_pickle=True)['arr_0']
+    # lookup_ref = np.load("system_lookup_table.npz")['arr_0']
 
     M = Meshoid(xuniq, muniq, huniq)
     res = 800
@@ -72,16 +72,20 @@ def main():
     ax.set_xlabel("X (pc)")
     ax.set_ylabel("Y (pc)")
 
-    filt_new_stars = np.in1d(partids, first_snap_idx[first_snap_idx[:, -1] == int(snap_idx)][:, 0])
+    filt_new_stars = np.in1d(partids, first_snap_idx[first_snap_idx[:, -1] <= int(snap_idx)][:, 0])
     if len((partpos[:, 0] - center[0])[filt_new_stars]) > 0:
         ax.scatter((partpos[:, 0] - center[0])[filt_new_stars], (partpos[:, 1] - center[1])[filt_new_stars], color='0.5', s=3)
 
-    bin1_sel = bin1_pos[first_together == int(snap_idx)]
-    bin2_sel = bin2_pos[first_together == int(snap_idx)]
+    bin_sel = bin_ids[(first_together <= int(snap_idx))]
+    ##Only plot binary stars that have not been dissociated yet??
+    for row in bin_sel:
+        row_li = list(row)
 
-    if len(bin1_sel) > 0:
-        ax.scatter(bin1_sel[:, 0] - center[0], bin1_sel[:, 1] - center[1], color='k', marker='*', s=3)
-        ax.scatter(bin2_sel[:, 0] - center[0], bin2_sel[:, 1] - center[1], color='k', marker='*', s=3)
+        pos1 = partpos[np.where(partids == row_li[0])[0]]
+        pos2 = partpos[np.where(partids == row_li[1])[0]]
+        ax.plot(pos1[0] - center[0], pos1[1] - center[1])
+        ax.plot(pos2[0] - center[0], pos2[1] - center[1])
+
 
     fig.savefig("gas_plot_{0}.pdf".format(snap_idx))
     fig.savefig("gas_plot_{0}.png".format(snap_idx))
