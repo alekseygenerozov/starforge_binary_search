@@ -266,19 +266,19 @@ def classify_triples(r1, r2, uids, first_snapshots):
         set_b = [set(row) for row in ids_b]
         ids_b_cat = np.concatenate(ids_b)
 
-        ##System exists in the previous snapshot THIS SHOULD NOT HAPPEN
+        ##System exists in the previous snapshot THIS SHOULD NOT HAPPEN -- MAYBE MARK WITH ERROR FLAG
         if np.in1d(pp_set, set_b)[0]:
             continue
-        ##If neither star index is present in previous snapshot we have a primordial binary formed
+        ##If no star index is present in previous snapshot we have a primordial triple formed
         if np.all(~np.in1d(pp, ids_b_cat)):
             u_class[ii] = 'p'
             continue
-        ##If only some of the stars existed in the previous snapshot the origin of the binary is ambiguous
+        ##If only some of the stars existed in the previous snapshot the origin of the triple is ambiguous
         if not np.all(np.in1d(pp, ids_b_cat)):
             u_class[ii] = 'sp'
             continue
 
-        ##Check multiplicity of stars in the previous snapshotor subsequent analysis we only want to consider stars that existed in both snapshots--Not
+        ##Check multiplicity of stars in the previous snapshot or subsequent analysis we only want to consider stars that existed in both snapshots--Not
         ##sure how to deal with this case perhaps we should add it a third "ambiguous" category
         tmp_mults = np.zeros(len(pp))
         ws = np.zeros(len(pp))
@@ -286,7 +286,7 @@ def classify_triples(r1, r2, uids, first_snapshots):
             w1 = np.where([np.in1d(ppp, row) for row in ids_b])
             ws[jj] = w1[0][0]
             tmp_mults[jj] = len(ids_b[w1[0][0]])
-        ##If all of the multiple stars were singles, we consider a capture to have occured
+        ##If one of stars was a single consider a capture to have occurred, we consider a capture to have occured
         if np.isin([1], tmp_mults)[0]:
             u_class[ii] = 'c'
             continue
