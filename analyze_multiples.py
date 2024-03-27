@@ -9,7 +9,7 @@ sys.path.append("/home/aleksey/Dropbox/projects/Hagai_projects/star_forge")
 import find_multiples_new2, halo_masses_single_double_par
 from find_multiples_new2 import cluster, system
 import h5py
-# sys.path.append("/home/aleksey/code/python")
+sys.path.append("/home/aleksey/code/python")
 from bash_command import bash_command as bc
 
 LOOKUP_SNAP = 0
@@ -161,6 +161,8 @@ def get_unique_triples(r1, r2, start_snap, end_snap):
     uids = []
     first_appearance = []
     outer_idx = []
+    inner_idx1 = []
+    inner_idx2 = []
     for ss in range(start_snap, end_snap + 1):
         try:
             with open(r1 + "{0:03d}".format(ss) + r2, "rb") as ff:
@@ -176,10 +178,13 @@ def get_unique_triples(r1, r2, start_snap, end_snap):
             if (mults_a[jj] == 3) and ~np.isin(pp_set, uids):
                 uids.append(pp_set)
                 first_appearance.append(ss)
+
                 outer_idx.append(hiers_a[jj].pop())
+                inner_idx1.append(hiers_a[jj][0][0])
+                inner_idx2.append(hiers_a[jj][0][1])
 
     ##Also will need to pop outer index from stored hierarchy...
-    return uids, np.array(first_appearance), outer_idx
+    return uids, np.array(first_appearance), outer_idx, inner_idx1, inner_idx2
 
 def classify_binaries(r1, r2, bin_ids, first_snapshots):
     """
@@ -324,6 +329,7 @@ def create_sys_lookup_table(r1, r2, base_sink, start_snap, end_snap):
                     sma1 = -1
                     ecc1 = -1
                 ##Using mass to identify particles -- In principle may not give a unique match...
+                ##Perhaps use assert to check this assumption(!!!)
                 else:
                     sel1 = np.isclose(m1, tmp_orb[:, 10:12])
                     sel1 = np.array([row[0] or row[1] for row in sel1])
@@ -355,12 +361,12 @@ def mult_filt(bin_ids, sys_lookup, ic):
     return mults_filt
 
 ##More flxible version of mult_filt
-def mult_filt_id(ids, times, sys_lookup):
-    mults_filt = np.zeros(len(ids))
+def mult_filt_id(ids, times, sys_lookup, mult_max=1):
+    mults_filt = np.zeros(len(ids)).astype(bool)
 
     for ii in range(len(times)):
         sys_lookup_sel0 = sys_lookup[(sys_lookup[:, 1] == ids[ii]) & (sys_lookup[:, 0] < times[ii])]
-        mults_filt[ii] = (np.all(sys_lookup_sel0[:, 3] == 1))
+        mults_filt[ii] = (np.all(sys_lookup_sel0[:, 3] <= mult_max))
 
     return mults_filt
 
@@ -463,7 +469,7 @@ def get_orbit_fst(base_sink, sys_lookup, fst_idx, uids, outer_idx):
         inner_part = inner_part[~np.in1d(inner_part, [outer_idx[ii]])]
         inner_dat_all = []
         for pp in inner_part:
-            ##NEED TO USE SYS_LOOKUP TABLE TO GET MASSES INCLUDING GAS...
+            ##NEED TO USE SYS_LOOKUP TABLE TO GET MASSES INCLUDING GAS...WONT
             m_gas = sys_lookup[(sys_lookup[:, LOOKUP_PID] == pp) & (sys_lookup[:, LOOKUP_SNAP] == tmp_snap)][0, LOOKUP_MTOT]
             inner_dat_all.append(snap_lookup(tmp_sink, pp)[0])
             inner_dat_all[-1][-1] = m_gas
@@ -576,15 +582,19 @@ def main():
     first_snap_orb = get_orbit_fst(base_sink, sys_lookup, fst_idx, bin_ids, outer_idx)
     np.savez(base + aa + "/fst_sma", first_snap_orb)
 
-    uids, ic, outer_idx = get_unique_triples(r1, r2, start_snap, end_snap)
+    uids, ic, outer_idx, inner_idx1, inner_idx2 = get_unique_triples(r1, r2, start_snap, end_snap)
     fst_idx = get_fst(first_snap_idx, uids)
     tri_class = classify_triples(r1, r2, uids, ic.astype(int))
+    np.savez(base + aa + "/tri_ic", ic)
     np.savez(base + aa + "/tri_ids", uids)
     np.savez(base + aa + "/tri_class", tri_class)
     first_snap_orb = get_orbit_fst(base_sink, sys_lookup, fst_idx, uids, outer_idx)
     np.savez(base + aa + "/tri_fst_sma", first_snap_orb)
-    np.savez(base + aa + "/tri_mults_filt", mult_filt_id(uids, ic, sys_lookup))
+    np.savez(base + aa + "/tri_fst", fst_idx)
+    np.savez(base + aa + "/tri_mults_filt", mult_filt_id(outer_idx, ic, sys_lookup))
+    np.savez(base + aa + "/tri_mults_filt_b", mult_filt_id(inner_idx1, ic, sys_lookup, mult_max=2) & mult_filt_id(inner_idx2, ic, sys_lookup, mult_max=2))
 
+    ##inner_idx1, inner_idx2...
 #######################################################################################################################################################################
 
 
