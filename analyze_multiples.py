@@ -300,7 +300,7 @@ def classify_triples(r1, r2, uids, first_snapshots):
 
 def create_sys_lookup_table(r1, r2, base_sink, start_snap, end_snap):
     """
-    Get the unique binaries from a series of snapshots...
+    Get the a lookup table for parent system/orbit of each star
 
     :param r1 string: Bases of pickle file name
     :param r2 string: End of pickle file name
@@ -308,6 +308,7 @@ def create_sys_lookup_table(r1, r2, base_sink, start_snap, end_snap):
     :param end_snap int: Ending snapshot index
 
     :return: numpy array where columns are (i) snapshot (ii) star id (iii) index of parent system (iv) multiplicity
+    mass (with and without gas), semimajor axis, eccentricity.
     :rtype: np.ndarray
     """
     lookup = []

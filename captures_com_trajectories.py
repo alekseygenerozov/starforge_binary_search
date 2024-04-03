@@ -94,7 +94,8 @@ hcol = np.where(sink_cols == "h")[0][0]
 scol = np.where(sink_cols == "sys_id")[0][0]
 ##MAKING PLOTS OF TRAJECTORIES FOR ALL OF THE BINARIES ...############################################################################################
 fig_idx = 0
-for jj in range(len(bin_ids))[:80]:
+dens_series = np.zeros((len(bin_ids), end_snap + 1))
+for jj in range(len(bin_ids)):
     if not np.isin(jj, final_bins_arr_id):
         continue
 
@@ -141,6 +142,8 @@ for jj in range(len(bin_ids))[:80]:
     closest_approaches_time = np.zeros(len(utags))
     closest_approaches_norm_time = np.zeros(len(utags))
 
+    path_diff_all = []
+    mass_all = []
     for ii, uu in enumerate(utags_str):
         #Want only closest approach of stars external to the binary.
         if uu in tmp_row:
@@ -148,6 +151,8 @@ for jj in range(len(bin_ids))[:80]:
         ##Displacement from binary com
         path_diff = subtract_path(path_lookup[uu][:, pxcol:pzcol + 1], coms)
         path_diff = np.sum(path_diff * path_diff, axis=1)**.5
+        path_diff_all.append(path_diff)
+        mass_all.append(path_lookup[uu][:, mcol])
         ##Closest approach for this particle
         order = np.argsort(path_diff)
         closest_approaches_time[ii] = path_lookup[uu][order[0]][0] * snap_interval
@@ -161,6 +166,15 @@ for jj in range(len(bin_ids))[:80]:
         closest_approaches_norm[ii] = path_diff_norm[order_norm[0]]
         # closest_approaches_norm[ii] = path_diff[order[0]]
         # print(path_lookup[uu][:, 0])
+    ##Transpose distance and mass array so that the rows are times.
+    path_diff_all = np.array(path_diff_all).T
+    mass_all = np.array(mass_all).T
+    ##Ordering particles by distance at every snapshot
+    path_diff_all_order = np.argsort(path_diff_all, axis=1)
+    path_diff_all = np.take_along_axis(path_diff_all, path_diff_all_order, axis=1)
+    mass_all = np.take_along_axis(mass_all, path_diff_all_order, axis=1)
+    ##Compute time series of the local density for this binary, using the 32 closes particles...
+    dens_series[jj] = path_divide(np.sum(mass_all[:, :32], axis=1), path_diff_all[:, 31] ** 3.)
 
     ##Minimum closest approach over all particles
     order = np.argsort(closest_approaches)
@@ -257,4 +271,5 @@ for jj in range(len(bin_ids))[:80]:
     fig.savefig(base + aa + "tmp_com_path_{0:03d}.png".format(fig_idx))
     fig_idx += 1
     plt.clf()
+np.savez("dens_series_final_bins.npz", dens_series)
 ###########################################################################
