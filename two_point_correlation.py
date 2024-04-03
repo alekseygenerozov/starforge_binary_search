@@ -59,6 +59,7 @@ absc = np.linspace(dmin, dmax, nbins)
 ##Generating the control sample -- may need to think about size more
 ncontrol = int((3. * dmax / absc[1])**1.5 * 10**.5 * 3)
 ncontrol = ncontrol // dat.shape[1] * dat.shape[1]
+print("Size of control sample", ncontrol)
 control_pos = np.random.uniform(-1.5 * dmax, 1.5 * dmax, ncontrol)
 control_pos.shape = (-1, dat.shape[1])
 np.savez("two_point_func", absc, get_two_point(dat, control_pos, absc))
