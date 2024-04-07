@@ -1,11 +1,15 @@
 import numpy as np
 from matplotlib import pyplot as plt
 import sys
+import pickle
+
 sys.path.append("/home/aleksey/code/python/")
 sys.path.append("/home/aleksey/Dropbox/projects/Hagai_projects/star_forge")
 from analyze_multiples import snap_lookup
 import find_multiples_new2
 import cgs_const as cgs
+
+
 
 LOOKUP_SNAP = 0
 LOOKUP_PID = 1
@@ -80,8 +84,8 @@ for ii, uu in enumerate(utags):
 
     path_lookup[utags_str[ii]] = tmp_path1
 
-# with open(base + aa + "/path_lookup.p", "wb"):
-#     pickle.dump()
+with open(base + aa + "/path_lookup.p", "wb") as ff:
+    pickle.dump(path_lookup, ff)
 
 mcol = np.where(sink_cols == "m")[0][0]
 pxcol = np.where(sink_cols == "px")[0][0]
@@ -95,6 +99,8 @@ scol = np.where(sink_cols == "sys_id")[0][0]
 ##MAKING PLOTS OF TRAJECTORIES FOR ALL OF THE BINARIES ...############################################################################################
 fig_idx = 0
 dens_series = np.zeros((len(bin_ids), end_snap + 1))
+halo_snap = np.zeros(len(bin_ids))
+
 for jj in range(len(bin_ids)):
     if not np.isin(jj, final_bins_arr_id):
         continue
@@ -187,63 +193,77 @@ for jj in range(len(bin_ids)):
     closest_approaches_norm = closest_approaches_norm[order_norm]
     closest_approaches_norm_time = closest_approaches_norm_time[order_norm]
 
+    ##Halo masses
+    tmp_halo_mass = sys1_info[:, LOOKUP_MTOT] - sys1_info[:, LOOKUP_M]
+    halo_snap1_list = np.where(tmp_halo_mass > 0.01 * sys1_info[:, LOOKUP_M])[0]
+    tmp_halo_mass = sys2_info[:, LOOKUP_MTOT] - sys2_info[:, LOOKUP_M]
+    halo_snap2_list = np.where(tmp_halo_mass > 0.01 * sys2_info[:, LOOKUP_M])[0]
+
+    ##Last snapshot with significant gas(!)
+    halo_snap1 = 0
+    halo_snap2 = 0
+    if len(halo_snap1_list) > 0:
+        halo_snap1 = halo_snap1[-1]
+    if len(halo_snap2_list) > 0:
+        halo_snap2 = halo_snap2[-1]
+    halo_snap[jj] = max(halo_snap1, halo_snap2)
     # fig, axs = plt.subplots(figsize=(20, 10), ncols=2)
-    fig, ax = plt.subplots(figsize=(10, 10), constrained_layout=True)
-    delta = np.abs(p1[tmp_filt][0] - p2[tmp_filt][0]) * conv
-
-    # ax = axs[0]
-    ax.set_xlabel("x [au]")
-    ax.set_ylabel("y [au]")
-    ax.set_xlim(-1.1 * delta[0], 1.1 * delta[0])
-    ax.set_ylim(-1.1 * delta[1], 1.1 * delta[1])
-
-    filt_together = (tmp1[:, scol] == tmp2[:, scol]) & (tmp_filt)
-    segs = np.where(~filt_together[:-1] == filt_together[1:])[0]
-    segs = np.append(segs, len(filt_together) - 1)
-
-    ax.plot(p1[:, 0] * conv, p1[:, 1] * conv, 'r--', alpha=0.3)
-    ax.plot(p2[:, 0] * conv, p2[:, 1] * conv, 'b--', alpha=0.3)
-    seg_last = -1
-    for tmp_seg in segs:
-        start = seg_last + 1
-        end = tmp_seg + 1
-        if filt_together[start]:
-            ax.plot(p1[:, 0][start:end] * conv, p1[:, 1][start:end] * conv, 'r-', alpha=0.6)
-            ax.plot(p2[:, 0][start:end] * conv, p2[:, 1][start:end] * conv, 'b-', alpha=0.6)
-
-        seg_last = tmp_seg
-    ax.annotate(r"$a_i = {0:.0f}$ au, $e_i$ = {1:.2g}".format(tmp_orb[0] * cgs.pc / cgs.au, tmp_orb[1]) + "\n" + "{0}".format(
-            tmp_row), (0.01, 0.99), ha='left', va='top', xycoords='axes fraction')
-
-    if fig_idx == 15:
-        tag = closest_tags[2]
-        tmp_path = path_lookup[tag]
-        pclose = subtract_path(tmp_path[:, pxcol:pzcol + 1], coms)
-        for ii in range(len(p1)):
-            fig, axs = plt.subplots(figsize=(20, 10), ncols=2)
-            ax = axs[0]
-            ax.set_xlabel("x [au]")
-            ax.set_ylabel("y [au]")
-            ax.set_xlim(-3.1 * delta[0], 3.1 * delta[0])
-            ax.set_ylim(-3.1 * delta[1], 3.1 * delta[1])
-
-            ax.plot(p1[ii, 0] * conv, p1[ii, 1] * conv, 'rs')
-            ax.plot(p2[ii, 0] * conv, p2[ii, 1] * conv, 'bs')
-            ax.plot(pclose[ii, 0] * conv, pclose[ii, 1] * conv, 'o', color='0.5')
-
-            ax = axs[1]
-            ax.set_ylim(0,1)
-            ax.set_xlabel("t [yr]")
-            ax.set_ylabel("e")
-            ax.plot(sys1_info[:, LOOKUP_SNAP] * snap_interval, sys1_info[:, LOOKUP_ECC], color='purple')
-            idx = np.where(sys1_info[:, LOOKUP_SNAP] == ii)[0]
-            if len(idx) > 0:
-                ax.plot(sys1_info[idx, LOOKUP_SNAP] * snap_interval, sys1_info[idx, LOOKUP_ECC], 'ks', color='purple')
-
-            fig.savefig(base + aa + "break_com_path_{0:03d}_{1}.png".format(fig_idx, ii))
-
-            plt.clf()
+    # fig, ax = plt.subplots(figsize=(10, 10), constrained_layout=True)
+    # delta = np.abs(p1[tmp_filt][0] - p2[tmp_filt][0]) * conv
     #
+    # # ax = axs[0]
+    # ax.set_xlabel("x [au]")
+    # ax.set_ylabel("y [au]")
+    # ax.set_xlim(-1.1 * delta[0], 1.1 * delta[0])
+    # ax.set_ylim(-1.1 * delta[1], 1.1 * delta[1])
+    #
+    # filt_together = (tmp1[:, scol] == tmp2[:, scol]) & (tmp_filt)
+    # segs = np.where(~filt_together[:-1] == filt_together[1:])[0]
+    # segs = np.append(segs, len(filt_together) - 1)
+    #
+    # ax.plot(p1[:, 0] * conv, p1[:, 1] * conv, 'r--', alpha=0.3)
+    # ax.plot(p2[:, 0] * conv, p2[:, 1] * conv, 'b--', alpha=0.3)
+    # seg_last = -1
+    # for tmp_seg in segs:
+    #     start = seg_last + 1
+    #     end = tmp_seg + 1
+    #     if filt_together[start]:
+    #         ax.plot(p1[:, 0][start:end] * conv, p1[:, 1][start:end] * conv, 'r-', alpha=0.6)
+    #         ax.plot(p2[:, 0][start:end] * conv, p2[:, 1][start:end] * conv, 'b-', alpha=0.6)
+    #
+    #     seg_last = tmp_seg
+    # ax.annotate(r"$a_i = {0:.0f}$ au, $e_i$ = {1:.2g}".format(tmp_orb[0] * cgs.pc / cgs.au, tmp_orb[1]) + "\n" + "{0}".format(
+    #         tmp_row), (0.01, 0.99), ha='left', va='top', xycoords='axes fraction')
+    #
+    # if fig_idx == 15:
+    #     tag = closest_tags[2]
+    #     tmp_path = path_lookup[tag]
+    #     pclose = subtract_path(tmp_path[:, pxcol:pzcol + 1], coms)
+    #     for ii in range(len(p1)):
+    #         fig, axs = plt.subplots(figsize=(20, 10), ncols=2)
+    #         ax = axs[0]
+    #         ax.set_xlabel("x [au]")
+    #         ax.set_ylabel("y [au]")
+    #         ax.set_xlim(-3.1 * delta[0], 3.1 * delta[0])
+    #         ax.set_ylim(-3.1 * delta[1], 3.1 * delta[1])
+    #
+    #         ax.plot(p1[ii, 0] * conv, p1[ii, 1] * conv, 'rs')
+    #         ax.plot(p2[ii, 0] * conv, p2[ii, 1] * conv, 'bs')
+    #         ax.plot(pclose[ii, 0] * conv, pclose[ii, 1] * conv, 'o', color='0.5')
+    #
+    #         ax = axs[1]
+    #         ax.set_ylim(0,1)
+    #         ax.set_xlabel("t [yr]")
+    #         ax.set_ylabel("e")
+    #         ax.plot(sys1_info[:, LOOKUP_SNAP] * snap_interval, sys1_info[:, LOOKUP_ECC], color='purple')
+    #         idx = np.where(sys1_info[:, LOOKUP_SNAP] == ii)[0]
+    #         if len(idx) > 0:
+    #             ax.plot(sys1_info[idx, LOOKUP_SNAP] * snap_interval, sys1_info[idx, LOOKUP_ECC], 'ks', color='purple')
+    #
+    #         fig.savefig(base + aa + "break_com_path_{0:03d}_{1}.png".format(fig_idx, ii))
+    #
+    #         plt.clf()
+
     # ax = axs[1]
     # ax.set_xlabel("x [pc]")
     # ax.set_ylabel("y [pc]")
@@ -268,8 +288,8 @@ for jj in range(len(bin_ids)):
     # ax.annotate(close_str1 + close_str2 + close_str3, (0.01, 0.99), ha='left', va='top', xycoords='axes fraction', fontsize=16)
     # ##Could also add the time of the closest encounter...
     # fig.savefig(base + aa + "com_path_{0:03d}.pdf".format(fig_idx))
-    fig.savefig(base + aa + "tmp_com_path_{0:03d}.png".format(fig_idx))
-    fig_idx += 1
-    plt.clf()
-np.savez("dens_series_final_bins.npz", dens_series)
+    # fig.savefig(base + aa + "tmp_com_path_{0:03d}.png".format(fig_idx))
+    # fig_idx += 1
+    # plt.clf()
+np.savez("dens_series_final_bins.npz", dens_series, halo_snap)
 ###########################################################################
