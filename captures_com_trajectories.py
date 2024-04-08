@@ -14,6 +14,7 @@ import cgs_const as cgs
 LOOKUP_SNAP = 0
 LOOKUP_PID = 1
 LOOKUP_MTOT = 4
+LOOKUP_M = 5
 LOOKUP_SMA = 6
 LOOKUP_ECC = 7
 
@@ -32,6 +33,12 @@ def path_divide(p1, p2):
     diff[filt] = p1[filt] / p2[filt]
 
     return diff
+
+def max_w_infinite(p1):
+    if np.all(np.isinf(p1)):
+        return np.inf
+    else:
+        return np.max(p1[~np.isinf(p1)])
 
 ##READING IN AUXILIARY DATA TABLES...############################################################################################
 sim_tag = "M2e4_R10_S0_T1_B0.1_Res271_n2_sol0.5_42"
@@ -99,6 +106,7 @@ scol = np.where(sink_cols == "sys_id")[0][0]
 ##MAKING PLOTS OF TRAJECTORIES FOR ALL OF THE BINARIES ...############################################################################################
 fig_idx = 0
 dens_series = np.zeros((len(bin_ids), end_snap + 1))
+force_series = np.zeros((len(bin_ids), end_snap + 1))
 halo_snap = np.zeros(len(bin_ids))
 
 for jj in range(len(bin_ids)):
@@ -175,6 +183,10 @@ for jj in range(len(bin_ids)):
     ##Transpose distance and mass array so that the rows are times.
     path_diff_all = np.array(path_diff_all).T
     mass_all = np.array(mass_all).T
+    ##Time series of maximum force (NB WITHOUT SOFTENING)
+    tmp_force = path_divide(mass_all.ravel(), (path_diff_all**2.).ravel())
+    tmp_force.shape = mass_all.shape
+    force_series[jj] = [max_w_infinite(row) for row in tmp_force]
     ##Ordering particles by distance at every snapshot
     path_diff_all_order = np.argsort(path_diff_all, axis=1)
     path_diff_all = np.take_along_axis(path_diff_all, path_diff_all_order, axis=1)
@@ -203,9 +215,9 @@ for jj in range(len(bin_ids)):
     halo_snap1 = 0
     halo_snap2 = 0
     if len(halo_snap1_list) > 0:
-        halo_snap1 = halo_snap1[-1]
+        halo_snap1 = halo_snap1_list[-1]
     if len(halo_snap2_list) > 0:
-        halo_snap2 = halo_snap2[-1]
+        halo_snap2 = halo_snap2_list[-1]
     halo_snap[jj] = max(halo_snap1, halo_snap2)
     # fig, axs = plt.subplots(figsize=(20, 10), ncols=2)
     # fig, ax = plt.subplots(figsize=(10, 10), constrained_layout=True)
@@ -291,5 +303,5 @@ for jj in range(len(bin_ids)):
     # fig.savefig(base + aa + "tmp_com_path_{0:03d}.png".format(fig_idx))
     # fig_idx += 1
     # plt.clf()
-np.savez("dens_series_final_bins.npz", dens_series, halo_snap)
+np.savez("dens_series_final_bins.npz", dens_series, halo_snap, force_series)
 ###########################################################################
