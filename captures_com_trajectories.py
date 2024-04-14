@@ -1,4 +1,5 @@
 import numpy as np
+import pytreegrav
 from matplotlib import pyplot as plt
 import sys
 import pickle
@@ -17,6 +18,9 @@ LOOKUP_MTOT = 4
 LOOKUP_M = 5
 LOOKUP_SMA = 6
 LOOKUP_ECC = 7
+
+# def calculate_acceleration(path_lookup, tag1, tag2):
+
 
 def subtract_path(p1, p2):
     assert len(p1) == len(p2)
@@ -61,10 +65,14 @@ snap_interval = 2.47e4
 sinks_all = []
 ts = []
 tags = []
+accels = []
 nsinks = np.zeros(end_snap + 1)
 for ss in range(start_snap, end_snap + 1):
     tmp_sink = np.atleast_2d(np.genfromtxt(base_sink + "{0:03d}.sink".format(ss)))
     sinks_all.append(tmp_sink)
+    # tmp_accel_stars = pytreegrav.Accel($$$, $$$, $$$, theta=0.5, G=sfc.GN, method='bruteforce')
+    # accels.append(tmp_accel_stars)
+
     ts.append(ss * np.ones(len(tmp_sink)))
 
 sinks_all = np.vstack(sinks_all)
@@ -72,6 +80,9 @@ ts = np.concatenate(ts)
 ts.shape = (-1, 1)
 sinks_all = np.hstack((ts, sinks_all))
 sink_cols = np.array(("t", "id", "px", "py", "pz", "vx", "vy", "vz", "h", "m"))
+
+# sinks_all = np.hstack((ts, sinks_all, accels))
+# sink_cols = np.array(("t", "id", "px", "py", "pz", "vx", "vy", "vz", "h", "m", "ax", "ay", "az"))
 
 tags = ["{0}_{1}".format(sinks_all[ii, 1], sinks_all[ii, 0]) for ii in range(len(ts))]
 sinks_all = sinks_all[np.argsort(tags)]
@@ -179,7 +190,9 @@ for jj in range(len(bin_ids)):
         ##Normalized closest approach
         closest_approaches_norm[ii] = path_diff_norm[order_norm[0]]
         # closest_approaches_norm[ii] = path_diff[order[0]]
-        # print(path_lookup[uu][:, 0])
+        ##FORCE ON EACH PARTICLE
+        ##NEED TO CALL PYTREEGRAV
+
     ##Transpose distance and mass array so that the rows are times.
     path_diff_all = np.array(path_diff_all).T
     mass_all = np.array(mass_all).T
@@ -192,7 +205,7 @@ for jj in range(len(bin_ids)):
     path_diff_all = np.take_along_axis(path_diff_all, path_diff_all_order, axis=1)
     mass_all = np.take_along_axis(mass_all, path_diff_all_order, axis=1)
     ##Compute time series of the local density for this binary, using the 32 closes particles...
-    dens_series[jj] = path_divide(np.sum(mass_all[:, :32], axis=1), path_diff_all[:, 31] ** 3.)
+    dens_series[jj] = path_divide(np.sum(mass_all[:, :16], axis=1), path_diff_all[:, 15] ** 3.)
 
     ##Minimum closest approach over all particles
     order = np.argsort(closest_approaches)
@@ -219,6 +232,8 @@ for jj in range(len(bin_ids)):
     if len(halo_snap2_list) > 0:
         halo_snap2 = halo_snap2_list[-1]
     halo_snap[jj] = max(halo_snap1, halo_snap2)
+    if(jj==1):
+        breakpoint()
     # fig, axs = plt.subplots(figsize=(20, 10), ncols=2)
     # fig, ax = plt.subplots(figsize=(10, 10), constrained_layout=True)
     # delta = np.abs(p1[tmp_filt][0] - p2[tmp_filt][0]) * conv

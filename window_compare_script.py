@@ -17,11 +17,12 @@ def extract_inner_orb(hh, oo, id_coll, sma_coll, ecc_coll):
     h_copy = copy.copy(hh)
     ##Can we use orb_copy?? Would be safer
     orb_copy = copy.copy(oo)
-    if type(h_copy)==list:
-        p1 = (h_copy.pop())
-        p2 = (h_copy.pop())
-        orb1 = oo.pop()
-        
+    ##Is this if statement necessary -- if it is not a list this would not work since it is undefined(!)
+    # if type(h_copy)==list:
+    p1 = (h_copy.pop())
+    p2 = (h_copy.pop())
+    orb1 = oo.pop()
+
     if (not type(p1)==list) and (not type(p2)==list):
         id_coll.append(str(np.sort([p1, p2])))
         sma_coll.append(orb1[0])
@@ -85,6 +86,7 @@ def main():
     window = int(sys.argv[3])
     r_scale = cgs.pc
     v_scale = 100
+    ##Ideally remove this hard-coding...
     delta_t = 2.47e4 * cgs.year
     aa = "analyze_multiples_output_" + r2.replace(".p", "") + "/"
     lookup = np.load(base + aa + "system_lookup_table.npz")['arr_0']
@@ -184,10 +186,9 @@ def main():
     np.savetxt("non_detect{0}_{1}".format(r2.replace(".p", ""), w_start),
                id_coll[filt_close][~in_new_bins[filt_close]], fmt="%s")
 
-    # print("Fraction of window bins identified in old method:", )
-    # print("Fraction of old method binaries identified in window search:", )
-    # print("Fraction of <1000 au old method binaries identified in window search:",)
-    #
+    print("Fraction of window bins identified in old method:", frac1)
+    print("Fraction of old method binaries identified in window search:", frac2)
+    print("Fraction of <1000 au old method binaries identified in window search:", frac3)
 
 if __name__ == "__main__":
     main()
