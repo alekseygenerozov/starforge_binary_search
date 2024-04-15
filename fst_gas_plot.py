@@ -86,8 +86,8 @@ def main():
         ax.scatter(pos2[:, 0] - center[0], pos2[:, 1] - center[1], c='k', s=3, alpha=0.5)
 
 
-    fig.savefig("gas_plot_{0}.pdf".format(snap_idx))
-    fig.savefig("gas_plot_{0}.png".format(snap_idx))
+    fig.savefig("tmp_gas_plot_{0}.pdf".format(snap_idx))
+    fig.savefig("tmp_gas_plot_{0}.png".format(snap_idx))
 
 
 

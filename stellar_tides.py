@@ -2,10 +2,13 @@ import numpy as np
 import sys
 import pickle
 import h5py
+import glob
 
 import pytreegrav
 import starforge_constants as sfc
 import find_multiples_new2 as fmn
+from find_multiples_new2 import cluster, system
+
 
 def subtract_path(p1, p2):
     assert len(p1) == len(p2)
@@ -24,22 +27,27 @@ def path_divide(p1, p2):
     return diff
 
 ##Initial and final snaps
-snap_base = "/scratch3/03532/mgrudic/STARFORGE_RT/STARFORGE_v1.1/" + sys.arg[1]+ "/output/snapshot"
+snap_base = "/scratch3/03532/mgrudic/STARFORGE_RT/STARFORGE_v1.1/" + sys.argv[1]+ "/output/snapshot"
 name_tag = sys.argv[2]
-start_snap = sys.argv[3]
-end_snap = sys.argv[4]
+start_snap = int(sys.argv[3])
+#start_snap = 100
+end_snap = int(sys.argv[4])
+#end_snap = 105
 ################################################################################
 sinks_all = []
 ts = []
 tags = []
 accels = []
-for ss in range(start_snap, end_snap + 1):
-    snapshot_file = snap_base + '_{0}.hdf5'.format(ss)
+for ss in range(214, 216):
+    snapshot_file = snap_base + '_{0:03d}.hdf5'.format(ss)
     snapshot_num = snapshot_file[-8:-5].replace("_","") # File number
-
+    print(ss)
     ##Loading sinks data
-    den, x, m, h, u, b, v, fmol, fneu, partpos, partmasses, partvels, partids, 
-    partsink, tage_myr, unit_base = fmn.load_data(snapshot_file, res_limit=1e-3)
+    try:
+        den, x, m, h, u, b, v, fmol, fneu, partpos, partmasses, partvels, partids, partsink, tage_myr, unit_base = fmn.load_data(snapshot_file, res_limit=1e-3)
+    except KeyError:
+        continue
+
     nsinks = len(partpos)
     partids.shape = (nsinks, -1)
     partsink.shape = (nsinks, -1)
@@ -64,7 +72,7 @@ acc_lookup = {}
 path_lookup = {}
 for ii, uu in enumerate(utags):
     tmp_sel = sinks_all[sinks_all[:, 1] == uu]
-    tmp_path1 = np.ones((end_snap + 1, 3)) * np.inf
+    tmp_path1 = np.ones((end_snap + 1, 13)) * np.inf
     tmp_path1[tmp_sel[:, 0].astype(int)] = tmp_sel
     path_lookup[utags_str[ii]] = tmp_path1
 ################################################################################
@@ -75,7 +83,7 @@ pycol = np.where(sink_cols == "py")[0][0]
 pzcol = np.where(sink_cols == "pz")[0][0]
 hcol = np.where(sink_cols == "h")[0][0]
 
-with open(sys.argv[1] + "/{0}_{1:03d}.p".format(name_tag, end_snap), "rb") as ff:
+with open(sys.argv[2], "rb") as ff:
     cl_a = pickle.load(ff)
     mults_a = np.array([sys1.multiplicity for sys1 in cl_a.systems])
     ids_a = np.array([set(sys1.ids) for sys1 in cl_a.systems], dtype=object)
@@ -122,3 +130,4 @@ for ii,row in enumerate(bin_ids):
     
     tmp_acc_norm = np.max((tmp_acc_norm_0, tmp_acc_norm_1), axis=0)
     tides_norm_series[ii] = np.copy(tmp_acc_norm)
+np.savez("{0}/tide_stars.npz".format(sys.argv[1]))
