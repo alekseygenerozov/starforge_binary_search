@@ -30,15 +30,13 @@ def path_divide(p1, p2):
 snap_base = "/scratch3/03532/mgrudic/STARFORGE_RT/STARFORGE_v1.1/" + sys.argv[1]+ "/output/snapshot"
 name_tag = sys.argv[2]
 start_snap = int(sys.argv[3])
-#start_snap = 100
 end_snap = int(sys.argv[4])
-#end_snap = 105
 ################################################################################
 sinks_all = []
 ts = []
 tags = []
 accels = []
-for ss in range(214, 216):
+for ss in range(start_snap, end_snap + 1):
     snapshot_file = snap_base + '_{0:03d}.hdf5'.format(ss)
     snapshot_num = snapshot_file[-8:-5].replace("_","") # File number
     print(ss)
