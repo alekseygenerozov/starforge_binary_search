@@ -23,6 +23,7 @@ print(start_snap, end_snap)
 
 bash_command("mkdir -p {0}".format(sys.argv[1]))
 tmpo, tmpe = bash_command2("python3 find_multiples_new2.py --name_tag {0} --snap_base {1} {2} --tides_factor {3} --ngrid 8".format(sys.argv[1], snap_base, end_snap, 8.0))
+print(tmpe)
 tmpo = tmpo.decode("utf-8").split()[-1]
 bash_command("python3 stellar_tides.py {0} {1} {2} {3} ".format(sys.argv[1], tmpo, start_snap, end_snap))
 print(tmpo)

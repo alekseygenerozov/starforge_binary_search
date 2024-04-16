@@ -612,7 +612,7 @@ def main():
     cl = cluster(partpos, partvels, partmasses, partsink, partids, accel_stars + accel_gas,
                  sma_order=sma_order, mult_max=args.mult_max, Ngrid1D=args.ngrid,
                  tides_factor=args.tides_factor, compress=args.compress)
-    with open(name_tag+"_snapshot/"+snapshot_num+"_TidesTrue" +
+    with open(name_tag+"/snapshot_"+snapshot_num+"_TidesTrue" +
               "_smao{0}_mult{1}_ngrid{2}_hm{3}_ft{4}_co{5}".format(sma_order, args.mult_max, args.ngrid, len(args.halo_mass_file) > 0, args.tides_factor, args.compress) + ".p", "wb") as ff:
         pickle.dump(cl, ff)
     print(name_tag+"/snapshot_"+snapshot_num+"_TidesTrue" +  "_smao{0}_mult{1}_ngrid{2}_hm{3}_ft{4}_co{5}.p".format(sma_order, args.mult_max, args.ngrid, len(args.halo_mass_file) > 0, args.tides_factor, args.compress))
