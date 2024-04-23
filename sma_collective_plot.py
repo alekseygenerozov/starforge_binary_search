@@ -141,6 +141,10 @@ for jj in range(len(bin_ids)):
               c=sys1_info[:, LOOKUP_SNAP][bound_filt], s=4)
     axs[2].semilogx(sys1_info[:, LOOKUP_SMA][bound_filt][-1] * cgs.pc / cgs.au, sys1_info[:, LOOKUP_ECC][bound_filt][-1], "rs")
     axs[2].semilogx(sys1_info[:, LOOKUP_SMA][bound_filt][0] * cgs.pc / cgs.au, sys1_info[:, LOOKUP_ECC][bound_filt][0], "s", color="k")
+    ax_sma.semilogx(sys1_info[:, LOOKUP_SNAP][bound_filt][0] * snap_interval, sys1_info[:, LOOKUP_SMA][bound_filt][0] * cgs.pc / cgs.au,
+                    "s", color="k")
+    # if fig_idx==7:
+    #     breakpoint()
 
     axs[2].set_xlabel("a [au]")
     axs[2].set_ylabel("e")
