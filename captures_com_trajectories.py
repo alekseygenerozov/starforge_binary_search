@@ -122,6 +122,7 @@ dens_series = np.zeros((len(bin_ids), end_snap + 1))
 cross_sections = np.zeros((len(bin_ids), end_snap + 1))
 force_series = np.zeros((len(bin_ids), end_snap + 1))
 halo_snap = np.zeros(len(bin_ids))
+closest = {}
 
 for jj in range(len(bin_ids)):
     if not np.isin(jj, final_bins_arr_id):
@@ -186,10 +187,12 @@ for jj in range(len(bin_ids)):
     vel_all_x = []
     vel_all_y = []
     vel_all_z = []
+    u_tags_exclude = []
     for ii, uu in enumerate(utags_str):
         #Want only closest approach of stars external to the binary.
         if uu in tmp_row:
             continue
+        u_tags_exclude.append([uu] * len(path_lookup[uu]))
         ##Displacement from binary com
         path_diff = subtract_path(path_lookup[uu][:, pxcol:pzcol + 1], coms)
         path_diff = np.sum(path_diff * path_diff, axis=1)**.5
@@ -219,6 +222,7 @@ for jj in range(len(bin_ids)):
     vel_all_x = np.array(vel_all_x).T
     vel_all_y = np.array(vel_all_y).T
     vel_all_z = np.array(vel_all_z).T
+    u_tags_exclude = np.array(u_tags_exclude).T
     ##Time series of maximum force (NB WITHOUT SOFTENING)
     tmp_force = path_divide(mass_all.ravel(), (path_diff_all**2.).ravel())
     tmp_force.shape = mass_all.shape
@@ -230,6 +234,8 @@ for jj in range(len(bin_ids)):
     vel_all_x = np.take_along_axis(vel_all_x, path_diff_all_order, axis=1)
     vel_all_y = np.take_along_axis(vel_all_y, path_diff_all_order, axis=1)
     vel_all_z = np.take_along_axis(vel_all_z, path_diff_all_order, axis=1)
+    u_tags_exclude = np.take_along_axis(u_tags_exclude, path_diff_all_order, axis=1)
+    closest[str(np.sort(list(bin_ids[jj])))] = u_tags_exclude
     ##Compute time series of the local density for this binary, using the 32 closes particles...
     dens_series[jj] = path_divide(np.sum(mass_all[:, :nclose], axis=1), path_diff_all[:, nclose-1] ** 3.)
     ##Need to calculate the velocity dispersions...
@@ -384,5 +390,7 @@ for jj in range(len(bin_ids)):
     fig_idx += 1
 
     plt.clf()
-np.savez("dens_series_final_bins_{0}.npz".format(nclose), dens_series, halo_snap, force_series, cross_sections=cross_sections)
+np.savez(base + aa + "dens_series_final_bins_{0}.npz".format(nclose), dens_series, halo_snap, force_series, cross_sections=cross_sections)
+with open(base + aa + "closest.p", "wb") as ff:
+    pickle.dump(closest, ff)
 ###########################################################################

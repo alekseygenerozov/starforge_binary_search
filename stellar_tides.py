@@ -26,62 +26,54 @@ def path_divide(p1, p2):
 
     return diff
 
-##Initial and final snaps
-snap_base = "/scratch3/03532/mgrudic/STARFORGE_RT/STARFORGE_v1.1/" + sys.argv[1]+ "/output/snapshot"
-name_tag = sys.argv[2]
-start_snap = int(sys.argv[3])
-end_snap = int(sys.argv[4])
-################################################################################
+base = "/home/aleksey/Dropbox/projects/Hagai_projects/star_forge/M2e4_R10_S0_T1_B0.1_Res271_n2_sol0.5_42/"
+r2 = "_TidesTrue_smaoFalse_mult4_ngridx_hmTrue_ft8.0_coFalse.p".replace(".p", "")
+aa = "analyze_multiples_output_" + r2 + "/"
+sim_tag = "M2e4_R10_S0_T1_B0.1_Res271_n2_sol0.5_42"
+base_sink = base + "/sinkprop/{0}_snapshot_".format(sim_tag)
+
+start_snap = 100
+end_snap = 489
 sinks_all = []
 ts = []
 tags = []
 accels = []
 for ss in range(start_snap, end_snap + 1):
-    snapshot_file = snap_base + '_{0:03d}.hdf5'.format(ss)
-    snapshot_num = snapshot_file[-8:-5].replace("_","") # File number
-    print(ss)
-    ##Loading sinks data
-    try:
-        den, x, m, h, u, b, v, fmol, fneu, partpos, partmasses, partvels, partids, partsink, tage_myr, unit_base = fmn.load_data(snapshot_file, res_limit=1e-3)
-    except KeyError:
-        continue
-
-    nsinks = len(partpos)
-    partids.shape = (nsinks, -1)
-    partsink.shape = (nsinks, -1)
-    partmasses.shape = (nsinks, -1)
-    tmp_sink = np.hstack((partids, partpos, partvels, partsink, partmasses))
-    tmp_accel_stars = pytreegrav.Accel(tmp_sink[:,1:4], 
-                                       tmp_sink[:,-1], tmp_sink[:,-2], theta=0.5, G=sfc.GN, method='bruteforce')
-
-    accels.append(tmp_accel_stars)
+    tmp_sink = np.atleast_2d(np.genfromtxt(base_sink + "{0:03d}.sink".format(ss)))
     sinks_all.append(tmp_sink)
+
+    tmp_accel_stars = pytreegrav.Accel(tmp_sink[:,1:4],
+                                       tmp_sink[:,-1], tmp_sink[:,-2], theta=0.5, G=sfc.GN, method='bruteforce')
+    accels.append(tmp_accel_stars)
     ts.append(ss * np.ones(len(tmp_sink)))
 
-sinks_all = np.vstack(sinks_all)
-accels = np.vstack(accels)
 ts = np.concatenate(ts)
 ts.shape = (-1, 1)
+sinks_all = np.vstack(sinks_all)
+# sinks_all = np.hstack((ts, sinks_all))
+accels = np.vstack(accels)
 sinks_all = np.hstack((ts, sinks_all, accels))
+sink_cols = np.array(("t", "id", "px", "py", "pz", "vx", "vy", "vz", "h", "m", "ax", "ay", "az"))
 
 utags = np.unique(sinks_all[:, 1])
 utags_str = utags.astype(int).astype(str)
-acc_lookup = {}
 path_lookup = {}
 for ii, uu in enumerate(utags):
     tmp_sel = sinks_all[sinks_all[:, 1] == uu]
-    tmp_path1 = np.ones((end_snap + 1, 13)) * np.inf
+    tmp_path1 = np.ones((end_snap + 1, len(sink_cols))) * np.inf
     tmp_path1[tmp_sel[:, 0].astype(int)] = tmp_sel
+
     path_lookup[utags_str[ii]] = tmp_path1
-################################################################################
-sink_cols = np.array(("t", "id", "px", "py", "pz", "vx", "vy", "vz", "h", "m"))
+############################################################################
 mcol = np.where(sink_cols == "m")[0][0]
 pxcol = np.where(sink_cols == "px")[0][0]
 pycol = np.where(sink_cols == "py")[0][0]
 pzcol = np.where(sink_cols == "pz")[0][0]
 hcol = np.where(sink_cols == "h")[0][0]
 
-with open(sys.argv[2], "rb") as ff:
+mult_lookup_file = "/home/aleksey/Dropbox/projects/Hagai_projects/star_forge/\
+M2e4_R10_S0_T1_B0.1_Res271_n2_sol0.5_42/M2e4_snapshot_489_TidesTrue_smaoFalse_mult4_ngridx_hmFalse_ft8.0_coFalse.p"
+with open(mult_lookup_file, "rb") as ff:
     cl_a = pickle.load(ff)
     mults_a = np.array([sys1.multiplicity for sys1 in cl_a.systems])
     ids_a = np.array([set(sys1.ids) for sys1 in cl_a.systems], dtype=object)
@@ -89,9 +81,9 @@ with open(sys.argv[2], "rb") as ff:
 
 internal_accel_lookup = {}
 tidal_accel_lookup = {}
-tides_norm_series = np.zeros((len(bin_ids), end_snap + 1))
+tides_norm_series = {}
 for ii,row in enumerate(bin_ids):
-    print(ii, row)
+    bin_key = str(np.sort(list(bin_ids[ii])))
     lrow = list(row)
     p1 = path_lookup[str(lrow[0])]
     p2 = path_lookup[str(lrow[1])]
@@ -128,5 +120,7 @@ for ii,row in enumerate(bin_ids):
     tmp_acc_norm_1 = path_divide(tidal_accel_lookup[str(lrow[1])], internal_accel_lookup[str(lrow[1])])
     
     tmp_acc_norm = np.max((tmp_acc_norm_0, tmp_acc_norm_1), axis=0)
-    tides_norm_series[ii] = np.copy(tmp_acc_norm)
-np.savez("{0}/tide_stars.npz".format(sys.argv[1]), tides_norm_series)
+    tides_norm_series[bin_key] = np.copy(tmp_acc_norm)
+# np.savez("{0}/tide_stars.npz".format(sys.argv[1]), tides_norm_series)
+with open(base + aa  + "tide_stars.p", "wb") as ff:
+    pickle.dump(tides_norm_series, ff)
