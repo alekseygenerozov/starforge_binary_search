@@ -98,6 +98,7 @@ for ii,row in enumerate(bin_ids):
     m1 = p1[:, mcol]
     m2 = p2[:, mcol]
 
+
     ai1 = np.ones((len(p1), 3)) * np.inf
     ai2 = np.ones((len(p1), 3)) * np.inf
     atot1 = path_lookup[str(lrow[0])][:, -3:]
@@ -128,4 +129,4 @@ for ii,row in enumerate(bin_ids):
     
     tmp_acc_norm = np.max((tmp_acc_norm_0, tmp_acc_norm_1), axis=0)
     tides_norm_series[ii] = np.copy(tmp_acc_norm)
-np.savez("{0}/tide_stars.npz".format(sys.argv[1]))
+np.savez("{0}/tide_stars.npz".format(sys.argv[1]), tides_norm_series)

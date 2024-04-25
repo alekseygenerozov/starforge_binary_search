@@ -19,7 +19,7 @@ LOOKUP_SMA = 6
 LOOKUP_ECC = 7
 
 # def calculate_acceleration(path_lookup, tag1, tag2):
-
+nclose = 32
 
 def subtract_path(p1, p2):
     assert len(p1) == len(p2)
@@ -56,6 +56,8 @@ bin_ids = np.load(base + aa + "/unique_bin_ids.npz", allow_pickle=True)['arr_0']
 ic = np.load(base + aa + "/ic.npz", allow_pickle=True)['arr_0']
 final_bins_arr_id = np.load(base + aa + "/final_bins_arr_id.npz")["arr_0"]
 bin_class = np.load(base + aa + "/classes.npz", allow_pickle=True)['arr_0']
+##Tides data
+tides_norm_series = np.load(base + aa + "//tides_norm_series.npz")["arr_0"]
 
 t_first = ic[:, 0]
 conv = cgs.pc / cgs.au
@@ -143,8 +145,19 @@ for jj in range(len(bin_ids)):
     psep = subtract_path(tmp1[:, pxcol:pzcol + 1], tmp2[:, pxcol:pzcol + 1])
     psep = np.sum((psep * psep), axis=1)**.5
     tmp_filt = ~np.isinf(p1[:, 0])
+    ##Filter to exclude data where binary separation falls below the softening length
+    pfilt = np.where(~np.isinf(psep) & (psep > 2e-4))[0]
+    t_avg = np.inf
+    t_max = np.inf
+    ##Mean tidal force for binaries while separation is greater than the softening length...
+    t_series = tides_norm_series[jj]
+    if len(pfilt) > 0:
+        pfilt = pfilt[-1]
+        tmp_t_series = t_series[:pfilt + 1]
+        t_avg = np.mean(tmp_t_series[~np.isinf(tmp_t_series)])
+        t_max = np.max(tmp_t_series[~np.isinf(tmp_t_series)])
 
-    print(tmp_row[0])
+
     sys1_info = lookup[int(tmp_row[0]) == lookup[:, LOOKUP_PID].astype(int)]
     sys2_info = lookup[int(tmp_row[1]) == lookup[:, LOOKUP_PID].astype(int)]
 
@@ -218,13 +231,13 @@ for jj in range(len(bin_ids)):
     vel_all_y = np.take_along_axis(vel_all_y, path_diff_all_order, axis=1)
     vel_all_z = np.take_along_axis(vel_all_z, path_diff_all_order, axis=1)
     ##Compute time series of the local density for this binary, using the 32 closes particles...
-    dens_series[jj] = path_divide(np.sum(mass_all[:, :32], axis=1), path_diff_all[:, 31] ** 3.)
+    dens_series[jj] = path_divide(np.sum(mass_all[:, :nclose], axis=1), path_diff_all[:, nclose-1] ** 3.)
     ##Need to calculate the velocity dispersions...
-    v_close_x = vel_all_x[:, :16]
+    v_close_x = vel_all_x[:, :nclose]
     sigma_x2 = np.mean(v_close_x**2., axis=1) - np.mean(v_close_x, axis=1)**2.
-    v_close_y = vel_all_y[:, :16]
+    v_close_y = vel_all_y[:, :nclose]
     sigma_y2 = np.mean(v_close_y**2., axis=1) - np.mean(v_close_y, axis=1)**2.
-    v_close_z = vel_all_z[:, :16]
+    v_close_z = vel_all_z[:, :nclose]
     sigma_z2 = np.mean(v_close_z**2., axis=1) - np.mean(v_close_z, axis=1)**2.
     sigma_2 = sigma_x2 + sigma_y2 + sigma_z2
     sigma_2[np.isnan(sigma_2)] = np.inf
@@ -256,11 +269,27 @@ for jj in range(len(bin_ids)):
         halo_snap2 = sys2_info[halo_snap2_list[-1]][LOOKUP_SNAP]
     halo_snap[jj] = max(halo_snap1, halo_snap2)
 
-    fig, axs = plt.subplots(figsize=(20, 10), ncols=2)
+    pfilt = np.where(~np.isinf(psep) & (psep > 2e-4))[0]
+    t_avg = np.inf
+    t_max = np.inf
+    snap_max = np.inf
+    ##Mean tidal force for binaries while separation is greater than the softening length...
+    t_series = tides_norm_series[jj]
+    if len(pfilt) > 0:
+        pfilt = pfilt[-1]
+        if halo_snap[jj] + 1 <= pfilt:
+            tmp_t_series = t_series[int(halo_snap[jj] + 1):pfilt + 1]
+            t_avg = np.mean(tmp_t_series[~np.isinf(tmp_t_series)])
+            t_max = np.max(tmp_t_series[~np.isinf(tmp_t_series)])
+            snap_max = np.where(t_series == t_max)[0][0]
+
+    if np.isinf(t_max) or t_max >= 0.01:
+        continue
+    fig, axs = plt.subplots(figsize=(20, 20), nrows=2, ncols=2)
     # fig, ax = plt.subplots(figsize=(10, 10), constrained_layout=True)
     delta = np.abs(p1[tmp_filt][0] - p2[tmp_filt][0]) * conv
 
-    ax = axs[0]
+    ax = axs[0,0]
     ax.set_xlabel("x [au]")
     ax.set_ylabel("y [au]")
     ax.set_xlim(-1.1 * delta[0], 1.1 * delta[0])
@@ -283,37 +312,28 @@ for jj in range(len(bin_ids)):
         seg_last = tmp_seg
     ax.annotate(r"$a_i = {0:.0f}$ au, $e_i$ = {1:.2g}".format(tmp_orb[0] * cgs.pc / cgs.au, tmp_orb[1]) + "\n" + "{0}".format(
             tmp_row), (0.01, 0.99), ha='left', va='top', xycoords='axes fraction')
-    #
-    # if fig_idx == 15:
-    #     tag = closest_tags[2]
-    #     tmp_path = path_lookup[tag]
-    #     pclose = subtract_path(tmp_path[:, pxcol:pzcol + 1], coms)
-    #     for ii in range(len(p1)):
-    #         fig, axs = plt.subplots(figsize=(20, 10), ncols=2)
-    #         ax = axs[0]
-    #         ax.set_xlabel("x [au]")
-    #         ax.set_ylabel("y [au]")
-    #         ax.set_xlim(-3.1 * delta[0], 3.1 * delta[0])
-    #         ax.set_ylim(-3.1 * delta[1], 3.1 * delta[1])
-    #
-    #         ax.plot(p1[ii, 0] * conv, p1[ii, 1] * conv, 'rs')
-    #         ax.plot(p2[ii, 0] * conv, p2[ii, 1] * conv, 'bs')
-    #         ax.plot(pclose[ii, 0] * conv, pclose[ii, 1] * conv, 'o', color='0.5')
-    #
-    #         ax = axs[1]
-    #         ax.set_ylim(0,1)
-    #         ax.set_xlabel("t [yr]")
-    #         ax.set_ylabel("e")
-    #         ax.plot(sys1_info[:, LOOKUP_SNAP] * snap_interval, sys1_info[:, LOOKUP_ECC], color='purple')
-    #         idx = np.where(sys1_info[:, LOOKUP_SNAP] == ii)[0]
-    #         if len(idx) > 0:
-    #             ax.plot(sys1_info[idx, LOOKUP_SNAP] * snap_interval, sys1_info[idx, LOOKUP_ECC], 'ks', color='purple')
-    #
-    #         fig.savefig(base + aa + "break_com_path_{0:03d}_{1}.png".format(fig_idx, ii))
-    #
-    #         plt.clf()
 
-    ax = axs[1]
+    ##Getting the closest distances...maybe should look at the closest distances after the halo mass disappears...
+    tag = closest_tags[2]
+    tmp_path = path_lookup[tag]
+    pclose = subtract_path(tmp_path[:, pxcol:pzcol + 1], coms)
+    pclose = np.sum(pclose * pclose, axis=1)**.5
+    tag = closest_tags[3]
+    tmp_path = path_lookup[tag]
+    pclose2 = subtract_path(tmp_path[:, pxcol:pzcol + 1], coms)
+    pclose2 = np.sum(pclose2 * pclose2, axis=1)**.5
+    tag = closest_tags[4]
+    tmp_path = path_lookup[tag]
+    pclose3 = subtract_path(tmp_path[:, pxcol:pzcol + 1], coms)
+    pclose3 = np.sum(pclose3 * pclose3, axis=1)**.5
+    tag = closest_tags[5]
+    tmp_path = path_lookup[tag]
+    pclose4 = subtract_path(tmp_path[:, pxcol:pzcol + 1], coms)
+    pclose4 = np.sum(pclose4 * pclose4, axis=1)**.5
+
+
+
+    ax = axs[1,0]
     ax.set_xlabel("x [pc]")
     ax.set_ylabel("y [pc]")
 
@@ -325,7 +345,7 @@ for jj in range(len(bin_ids)):
         tmp_path = path_lookup[tag]
         ax.plot(tmp_path[:, pxcol], tmp_path[:, pycol], color='0.5')
 
-    for tag in closest_tags_norm[2:3]:
+    for tag in closest_tags_norm[2:4]:
         tmp_path = path_lookup[tag]
         ax.plot(tmp_path[:, pxcol], tmp_path[:, pycol], '--', color='0.5')
 
@@ -339,8 +359,30 @@ for jj in range(len(bin_ids)):
     ax.annotate(close_str1 + close_str2 + close_str3 + close_str4, (0.01, 0.99), ha='left', va='top', xycoords='axes fraction', fontsize=16)
     ##Could also add the time of the closest encounter...
     # fig.savefig(base + aa + "com_path_{0:03d}.pdf".format(fig_idx))
-    fig.savefig(base + aa + "com_path_{0:03d}.png".format(fig_idx))
+
+    ax = axs[0, 1]
+    ax.set_xlim(2e6, 2e7)
+    ax.set_xlabel("Time [yr]")
+    ax.set_ylabel("Normalized tidal force")
+    ax.plot(np.linspace(0, 489, 490)[int(halo_snap[jj]) + 1:] * snap_interval, t_series[int(halo_snap[jj]) + 1:])
+    ax.annotate("Avg, Max={0:.2g}, {1:.2g}".format(t_avg, t_max),
+                (0.01, 0.99), xycoords="axes fraction", va='top', ha='left')
+
+    ax = axs[1,1]
+    ax.set_xlim(2e6, 2e7)
+    ax.set_xlabel("Time [yr]")
+    ax.set_ylabel("Closest distances")
+    ax.semilogy(np.array([snap_max, snap_max]) * snap_interval, [0.1, 1], 'r--')
+    ax.semilogy(np.linspace(0, 489, 490) * snap_interval, pclose)
+    ax.semilogy(np.linspace(0, 489, 490) * snap_interval, pclose2)
+    ax.semilogy(np.linspace(0, 489, 490) * snap_interval, pclose3)
+    ax.semilogy(np.linspace(0, 489, 490) * snap_interval, pclose4)
+
+
+
+    fig.savefig(base + aa + "tmp2_com_path_{0:03d}.png".format(fig_idx))
     fig_idx += 1
+
     plt.clf()
-np.savez("dens_series_final_bins.npz", dens_series, halo_snap, force_series, cross_sections=cross_sections)
+np.savez("dens_series_final_bins_{0}.npz".format(nclose), dens_series, halo_snap, force_series, cross_sections=cross_sections)
 ###########################################################################

@@ -9,6 +9,7 @@ import matplotlib.transforms as mtransforms
 ##Columns in the lookup table...
 LOOKUP_SNAP = 0
 LOOKUP_PID = 1
+LOOKUP_MULT = 3
 LOOKUP_MTOT = 4
 LOOKUP_M = 5
 LOOKUP_SMA = 6
@@ -54,7 +55,7 @@ for jj in range(len(bin_ids)):
     ax_ecc.set_xlabel('t [yr]')
     ax_ecc.set_ylabel('e')
 
-    fig, axs = plt.subplots(figsize=(40, 10), ncols=4, constrained_layout=True)
+    fig, axs = plt.subplots(figsize=(50, 10), ncols=5, constrained_layout=True)
     ax = axs[0]
     ax.set_ylim(1, 1e5)
     ax.set_xlabel('t [yr]')
@@ -135,6 +136,12 @@ for jj in range(len(bin_ids)):
                   color=cols[kk], alpha=alphas[kk])
         axs[3].loglog(tmp_sys_idx_ref[:, LOOKUP_SNAP] * snap_interval, tmp_sys_idx[:, LOOKUP_M],
                   color=cols[kk], alpha=alphas[kk], linestyle='--')
+
+        axs[4].loglog(tmp_sys_idx_ref[:, LOOKUP_SNAP] * snap_interval, tmp_sys_idx[:, LOOKUP_MULT],
+                  color=cols[kk], alpha=alphas[kk])
+
+
+
     ###Only plot points when the binary is in a common system(!!!)
     assert np.all(sys1_info[:, LOOKUP_ECC][bound_filt] == sys2_info[:, LOOKUP_ECC][bound_filt])
     axs[2].scatter(sys1_info[:, LOOKUP_SMA][bound_filt] * cgs.pc / cgs.au, sys1_info[:, LOOKUP_ECC][bound_filt],
@@ -148,13 +155,13 @@ for jj in range(len(bin_ids)):
 
     axs[2].set_xlabel("a [au]")
     axs[2].set_ylabel("e")
-    # fig.savefig(base + aa + "/sma_history_{0:03d}.pdf".format(fig_idx))
+    fig.savefig(base + aa + "/sma_history_{0:03d}.png".format(fig_idx))
     # extent = axs[0].get_window_extent().transformed(fig.dpi_scale_trans.inverted())
     # Saving it to a pdf file.
     # fig.savefig(base + aa + "/sma_history_p1_{0:03d}.png".format(fig_idx), bbox_inches=mtransforms.Bbox([[0, 1], [0, .25]]).transformed(
     #     fig.transFigure - fig.dpi_scale_trans))
-    fig_sma.savefig(base + aa + "/sma_history_p1_{0:03d}.png".format(fig_idx))
-    fig_ecc.savefig(base + aa + "/ecc_history_p1_{0:03d}.png".format(fig_idx))
+    # fig_sma.savefig(base + aa + "/sma_history_p1_{0:03d}.png".format(fig_idx))
+    # fig_ecc.savefig(base + aa + "/ecc_history_p1_{0:03d}.png".format(fig_idx))
 
     fig_idx += 1
     plt.clf()
