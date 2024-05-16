@@ -114,7 +114,7 @@ def main():
         closest_dat["u_{0}".format(pi)] = uuniq[closest]
         closest_dat["h_{0}".format(pi)] = huniq[closest]
 
-    with(open(name_tag + "/closest_{0}.p".format(snapshot_num)), "wb") as ff:
+    with(open(name_tag + "/closest_{0}.p".format(snapshot_num), "wb")) as ff:
         pickle.dump(closest_dat, ff)
 
     # nsinks = len(partpos)
