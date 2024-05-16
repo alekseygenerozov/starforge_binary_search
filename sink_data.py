@@ -104,7 +104,7 @@ def main():
 
     closest_dat = {}
     for pp, pi in zip(partpos, partids):
-        d = xuniq1 - pp
+        d = xuniq - pp
         d = np.sum(d * d, axis=1) ** .5
         closest = d < 500. * cgs_au / cgs_pc
         closest_dat["rho_{0}".format(pi)] = denuniq[closest]
