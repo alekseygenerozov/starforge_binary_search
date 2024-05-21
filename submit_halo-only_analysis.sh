@@ -18,7 +18,7 @@ module load hdf5
 module unload impi
 module load python3/3.9.2
 
-python3 run_batch_halo_only_par.py 430 489
+python3 run_batch_halo_only_par.py 0
 
 
 

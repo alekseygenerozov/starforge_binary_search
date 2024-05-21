@@ -239,6 +239,8 @@ def main():
 
     den, x, m, h, u, b, v, fmol, fneu, partpos, partmasses, partvels, partids, partsink, tage_myr, unit_base =\
     find_multiples_new2.load_data(snap_file, res_limit=1e-3)
+    if len(partpos) == 0:
+        return
 
     xuniq, indx = np.unique(x, return_index=True, axis=0)
     muniq = m[indx]
