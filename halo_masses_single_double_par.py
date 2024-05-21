@@ -234,7 +234,7 @@ def main():
     non_pair = args.non_pair
     name_tag = args.name_tag
 
-    snap_file = args.snap_base + '_{0}.hdf5'.format(snap_idx)
+    snap_file = args.snap_base + '_{0:03d}.hdf5'.format(snap_idx)
     snapshot_num = snap_file[-8:-5].replace("_", "")  # File number
 
     den, x, m, h, u, b, v, fmol, fneu, partpos, partmasses, partvels, partids, partsink, tage_myr, unit_base =\
