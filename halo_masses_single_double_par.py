@@ -237,9 +237,10 @@ def main():
     snap_file = args.snap_base + '_{0:03d}.hdf5'.format(int(snap_idx))
     snapshot_num = snap_file[-8:-5].replace("_", "")  # File number
 
-    den, x, m, h, u, b, v, fmol, fneu, partpos, partmasses, partvels, partids, partsink, tage_myr, unit_base =\
+    try:
+        den, x, m, h, u, b, v, fmol, fneu, partpos, partmasses, partvels, partids, partsink, tage_myr, unit_base =\
     find_multiples_new2.load_data(snap_file, res_limit=1e-3)
-    if len(partpos) == 0:
+    except KeyError:
         return
 
     xuniq, indx = np.unique(x, return_index=True, axis=0)
