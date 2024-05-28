@@ -125,8 +125,8 @@ halo_snap = np.zeros(len(bin_ids))
 closest = {}
 
 for jj in range(len(bin_ids)):
-    if not np.isin(jj, final_bins_arr_id):
-        continue
+    # if not np.isin(jj, final_bins_arr_id):
+    #     continue
 
     tmp_row = np.array(list(bin_ids[jj])).astype(str)
     tmp_class = bin_class[jj]
@@ -288,109 +288,109 @@ for jj in range(len(bin_ids)):
             t_avg = np.mean(tmp_t_series[~np.isinf(tmp_t_series)])
             t_max = np.max(tmp_t_series[~np.isinf(tmp_t_series)])
             snap_max = np.where(t_series == t_max)[0][0]
-
-    if np.isinf(t_max) or t_max >= 0.01:
-        continue
-    fig, axs = plt.subplots(figsize=(20, 20), nrows=2, ncols=2)
-    # fig, ax = plt.subplots(figsize=(10, 10), constrained_layout=True)
-    delta = np.abs(p1[tmp_filt][0] - p2[tmp_filt][0]) * conv
-
-    ax = axs[0,0]
-    ax.set_xlabel("x [au]")
-    ax.set_ylabel("y [au]")
-    ax.set_xlim(-1.1 * delta[0], 1.1 * delta[0])
-    ax.set_ylim(-1.1 * delta[1], 1.1 * delta[1])
-
-    filt_together = (tmp1[:, scol] == tmp2[:, scol]) & (tmp_filt)
-    segs = np.where(~filt_together[:-1] == filt_together[1:])[0]
-    segs = np.append(segs, len(filt_together) - 1)
-
-    ax.plot(p1[:, 0] * conv, p1[:, 1] * conv, 'r--', alpha=0.3)
-    ax.plot(p2[:, 0] * conv, p2[:, 1] * conv, 'b--', alpha=0.3)
-    seg_last = -1
-    for tmp_seg in segs:
-        start = seg_last + 1
-        end = tmp_seg + 1
-        if filt_together[start]:
-            ax.plot(p1[:, 0][start:end] * conv, p1[:, 1][start:end] * conv, 'r-', alpha=0.6)
-            ax.plot(p2[:, 0][start:end] * conv, p2[:, 1][start:end] * conv, 'b-', alpha=0.6)
-
-        seg_last = tmp_seg
-    ax.annotate(r"$a_i = {0:.0f}$ au, $e_i$ = {1:.2g}".format(tmp_orb[0] * cgs.pc / cgs.au, tmp_orb[1]) + "\n" + "{0}".format(
-            tmp_row), (0.01, 0.99), ha='left', va='top', xycoords='axes fraction')
-
-    ##Getting the closest distances...maybe should look at the closest distances after the halo mass disappears...
-    tag = closest_tags[2]
-    tmp_path = path_lookup[tag]
-    pclose = subtract_path(tmp_path[:, pxcol:pzcol + 1], coms)
-    pclose = np.sum(pclose * pclose, axis=1)**.5
-    tag = closest_tags[3]
-    tmp_path = path_lookup[tag]
-    pclose2 = subtract_path(tmp_path[:, pxcol:pzcol + 1], coms)
-    pclose2 = np.sum(pclose2 * pclose2, axis=1)**.5
-    tag = closest_tags[4]
-    tmp_path = path_lookup[tag]
-    pclose3 = subtract_path(tmp_path[:, pxcol:pzcol + 1], coms)
-    pclose3 = np.sum(pclose3 * pclose3, axis=1)**.5
-    tag = closest_tags[5]
-    tmp_path = path_lookup[tag]
-    pclose4 = subtract_path(tmp_path[:, pxcol:pzcol + 1], coms)
-    pclose4 = np.sum(pclose4 * pclose4, axis=1)**.5
-
-
-
-    ax = axs[1,0]
-    ax.set_xlabel("x [pc]")
-    ax.set_ylabel("y [pc]")
-
-    ax.plot(tmp1[:, pxcol], tmp1[:, pycol], 'r', alpha=0.5)
-    ax.plot(tmp2[:, pxcol], tmp2[:, pycol], 'b--', alpha=0.5)
-    ax.plot(tmp1_fst[pxcol], tmp2_fst[pycol], "rs")
-
-    for tag in closest_tags[2:3]:
-        tmp_path = path_lookup[tag]
-        ax.plot(tmp_path[:, pxcol], tmp_path[:, pycol], color='0.5')
-
-    for tag in closest_tags_norm[2:4]:
-        tmp_path = path_lookup[tag]
-        ax.plot(tmp_path[:, pxcol], tmp_path[:, pycol], '--', color='0.5')
-
-    close_str1 = r"Closest distance ={0:.2g} au, time = {1:.2g} yr".format(closest_approaches[2], closest_approaches_time[2]) +\
-                "\n" + "{0}\n".format(closest_tags[2])
-    close_str2 = r"Min (Approach / Bin Sep) ={0:.2g}, time = {1:.2g} yr".format(closest_approaches_norm[2], closest_approaches_norm_time[2]) +\
-                "\n" + "{0}\n".format(closest_tags_norm[2])
-    close_str3 = "Class: {0}\n".format(tmp_class)
-    close_str4 = "Initial Separation: {0:.1f}".format(psep[~np.isinf(psep)][0] * cgs.pc / cgs.au)
-
-    ax.annotate(close_str1 + close_str2 + close_str3 + close_str4, (0.01, 0.99), ha='left', va='top', xycoords='axes fraction', fontsize=16)
-    ##Could also add the time of the closest encounter...
-    # fig.savefig(base + aa + "com_path_{0:03d}.pdf".format(fig_idx))
-
-    ax = axs[0, 1]
-    ax.set_xlim(2e6, 2e7)
-    ax.set_xlabel("Time [yr]")
-    ax.set_ylabel("Normalized tidal force")
-    ax.plot(np.linspace(0, 489, 490)[int(halo_snap[jj]) + 1:] * snap_interval, t_series[int(halo_snap[jj]) + 1:])
-    ax.annotate("Avg, Max={0:.2g}, {1:.2g}".format(t_avg, t_max),
-                (0.01, 0.99), xycoords="axes fraction", va='top', ha='left')
-
-    ax = axs[1,1]
-    ax.set_xlim(2e6, 2e7)
-    ax.set_xlabel("Time [yr]")
-    ax.set_ylabel("Closest distances")
-    ax.semilogy(np.array([snap_max, snap_max]) * snap_interval, [0.1, 1], 'r--')
-    ax.semilogy(np.linspace(0, 489, 490) * snap_interval, pclose)
-    ax.semilogy(np.linspace(0, 489, 490) * snap_interval, pclose2)
-    ax.semilogy(np.linspace(0, 489, 490) * snap_interval, pclose3)
-    ax.semilogy(np.linspace(0, 489, 490) * snap_interval, pclose4)
-
-
-
-    fig.savefig(base + aa + "tmp2_com_path_{0:03d}.png".format(fig_idx))
-    fig_idx += 1
-
-    plt.clf()
+    #
+    # if np.isinf(t_max) or t_max >= 0.01:
+    #     continue
+    # fig, axs = plt.subplots(figsize=(20, 20), nrows=2, ncols=2)
+    # # fig, ax = plt.subplots(figsize=(10, 10), constrained_layout=True)
+    # delta = np.abs(p1[tmp_filt][0] - p2[tmp_filt][0]) * conv
+    #
+    # ax = axs[0,0]
+    # ax.set_xlabel("x [au]")
+    # ax.set_ylabel("y [au]")
+    # ax.set_xlim(-1.1 * delta[0], 1.1 * delta[0])
+    # ax.set_ylim(-1.1 * delta[1], 1.1 * delta[1])
+    #
+    # filt_together = (tmp1[:, scol] == tmp2[:, scol]) & (tmp_filt)
+    # segs = np.where(~filt_together[:-1] == filt_together[1:])[0]
+    # segs = np.append(segs, len(filt_together) - 1)
+    #
+    # ax.plot(p1[:, 0] * conv, p1[:, 1] * conv, 'r--', alpha=0.3)
+    # ax.plot(p2[:, 0] * conv, p2[:, 1] * conv, 'b--', alpha=0.3)
+    # seg_last = -1
+    # for tmp_seg in segs:
+    #     start = seg_last + 1
+    #     end = tmp_seg + 1
+    #     if filt_together[start]:
+    #         ax.plot(p1[:, 0][start:end] * conv, p1[:, 1][start:end] * conv, 'r-', alpha=0.6)
+    #         ax.plot(p2[:, 0][start:end] * conv, p2[:, 1][start:end] * conv, 'b-', alpha=0.6)
+    #
+    #     seg_last = tmp_seg
+    # ax.annotate(r"$a_i = {0:.0f}$ au, $e_i$ = {1:.2g}".format(tmp_orb[0] * cgs.pc / cgs.au, tmp_orb[1]) + "\n" + "{0}".format(
+    #         tmp_row), (0.01, 0.99), ha='left', va='top', xycoords='axes fraction')
+    #
+    # ##Getting the closest distances...maybe should look at the closest distances after the halo mass disappears...
+    # tag = closest_tags[2]
+    # tmp_path = path_lookup[tag]
+    # pclose = subtract_path(tmp_path[:, pxcol:pzcol + 1], coms)
+    # pclose = np.sum(pclose * pclose, axis=1)**.5
+    # tag = closest_tags[3]
+    # tmp_path = path_lookup[tag]
+    # pclose2 = subtract_path(tmp_path[:, pxcol:pzcol + 1], coms)
+    # pclose2 = np.sum(pclose2 * pclose2, axis=1)**.5
+    # tag = closest_tags[4]
+    # tmp_path = path_lookup[tag]
+    # pclose3 = subtract_path(tmp_path[:, pxcol:pzcol + 1], coms)
+    # pclose3 = np.sum(pclose3 * pclose3, axis=1)**.5
+    # tag = closest_tags[5]
+    # tmp_path = path_lookup[tag]
+    # pclose4 = subtract_path(tmp_path[:, pxcol:pzcol + 1], coms)
+    # pclose4 = np.sum(pclose4 * pclose4, axis=1)**.5
+    #
+    #
+    #
+    # ax = axs[1,0]
+    # ax.set_xlabel("x [pc]")
+    # ax.set_ylabel("y [pc]")
+    #
+    # ax.plot(tmp1[:, pxcol], tmp1[:, pycol], 'r', alpha=0.5)
+    # ax.plot(tmp2[:, pxcol], tmp2[:, pycol], 'b--', alpha=0.5)
+    # ax.plot(tmp1_fst[pxcol], tmp2_fst[pycol], "rs")
+    #
+    # for tag in closest_tags[2:3]:
+    #     tmp_path = path_lookup[tag]
+    #     ax.plot(tmp_path[:, pxcol], tmp_path[:, pycol], color='0.5')
+    #
+    # for tag in closest_tags_norm[2:4]:
+    #     tmp_path = path_lookup[tag]
+    #     ax.plot(tmp_path[:, pxcol], tmp_path[:, pycol], '--', color='0.5')
+    #
+    # close_str1 = r"Closest distance ={0:.2g} au, time = {1:.2g} yr".format(closest_approaches[2], closest_approaches_time[2]) +\
+    #             "\n" + "{0}\n".format(closest_tags[2])
+    # close_str2 = r"Min (Approach / Bin Sep) ={0:.2g}, time = {1:.2g} yr".format(closest_approaches_norm[2], closest_approaches_norm_time[2]) +\
+    #             "\n" + "{0}\n".format(closest_tags_norm[2])
+    # close_str3 = "Class: {0}\n".format(tmp_class)
+    # close_str4 = "Initial Separation: {0:.1f}".format(psep[~np.isinf(psep)][0] * cgs.pc / cgs.au)
+    #
+    # ax.annotate(close_str1 + close_str2 + close_str3 + close_str4, (0.01, 0.99), ha='left', va='top', xycoords='axes fraction', fontsize=16)
+    # ##Could also add the time of the closest encounter...
+    # # fig.savefig(base + aa + "com_path_{0:03d}.pdf".format(fig_idx))
+    #
+    # ax = axs[0, 1]
+    # ax.set_xlim(2e6, 2e7)
+    # ax.set_xlabel("Time [yr]")
+    # ax.set_ylabel("Normalized tidal force")
+    # ax.plot(np.linspace(0, 489, 490)[int(halo_snap[jj]) + 1:] * snap_interval, t_series[int(halo_snap[jj]) + 1:])
+    # ax.annotate("Avg, Max={0:.2g}, {1:.2g}".format(t_avg, t_max),
+    #             (0.01, 0.99), xycoords="axes fraction", va='top', ha='left')
+    #
+    # ax = axs[1,1]
+    # ax.set_xlim(2e6, 2e7)
+    # ax.set_xlabel("Time [yr]")
+    # ax.set_ylabel("Closest distances")
+    # ax.semilogy(np.array([snap_max, snap_max]) * snap_interval, [0.1, 1], 'r--')
+    # ax.semilogy(np.linspace(0, 489, 490) * snap_interval, pclose)
+    # ax.semilogy(np.linspace(0, 489, 490) * snap_interval, pclose2)
+    # ax.semilogy(np.linspace(0, 489, 490) * snap_interval, pclose3)
+    # ax.semilogy(np.linspace(0, 489, 490) * snap_interval, pclose4)
+    #
+    #
+    #
+    # fig.savefig(base + aa + "tmp2_com_path_{0:03d}.png".format(fig_idx))
+    # fig_idx += 1
+    #
+    # plt.clf()
 np.savez(base + aa + "dens_series_final_bins_{0}.npz".format(nclose), dens_series, halo_snap, force_series, cross_sections=cross_sections)
-with open(base + aa + "closest.p", "wb") as ff:
-    pickle.dump(closest, ff)
+# with open(base + aa + "closest.p", "wb") as ff:
+#     pickle.dump(closest, ff)
 ###########################################################################
