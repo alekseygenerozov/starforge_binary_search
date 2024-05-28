@@ -555,9 +555,12 @@ class cluster(object):
         mass = self.get_system_mass
         ids = self.get_system_ids
         soft = self.get_system_soft
-
         idx1 = np.where(sysIDs == ID_NEW)[0][0]
-        for id_it in regionIDs:
+        d = pos - pos[idx1]
+        d = np.sum(d * d, axis=1) ** .5
+        order = np.argsort(d)
+
+        for id_it in regionIDs[order][1:51]:
             j = np.where(id_it == sysIDs)[0][0]
             tmp = get_orbit(pos[idx1], pos[j], vel[idx1], vel[j], mass[idx1], mass[j], h1=soft[idx1], h2=soft[j])
             tmp = np.concatenate((tmp, [ids[idx1][0], ids[j][0], ID_NEW, id_it]))
