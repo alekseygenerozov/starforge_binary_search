@@ -1,3 +1,4 @@
+import time
 import numpy as np
 import h5py
 from itertools import combinations
@@ -556,11 +557,17 @@ class cluster(object):
         ids = self.get_system_ids
         soft = self.get_system_soft
         idx1 = np.where(sysIDs == ID_NEW)[0][0]
+        ##Need to get distances of IDs in region
         d = pos - pos[idx1]
+        ##Should be a more efficient way to do this?
+        r_idx = [np.where(rr == sysIDs)[0][0] for rr in regionIDs]
+        r_idx = np.array(r_idx)
+        d = d[r_idx]
         d = np.sum(d * d, axis=1) ** .5
         order = np.argsort(d)
 
-        for id_it in regionIDs[order][1:51]:
+        ##new systems will not be included in regionIDs, so we have slightly different indexing _calc_orbits
+        for id_it in regionIDs[order][:50]:
             j = np.where(id_it == sysIDs)[0][0]
             tmp = get_orbit(pos[idx1], pos[j], vel[idx1], vel[j], mass[idx1], mass[j], h1=soft[idx1], h2=soft[j])
             tmp = np.concatenate((tmp, [ids[idx1][0], ids[j][0], ID_NEW, id_it]))
@@ -612,14 +619,14 @@ def main():
                                        theta=0.5, G=sfc.GN, method='tree')
     accel_stars = pytreegrav.Accel(partpos, partmasses, partsink, theta=0.5, G=sfc.GN, method='bruteforce')
     #
+    start_time = time.time()
     cl = cluster(partpos, partvels, partmasses, partsink, partids, accel_stars + accel_gas,
                  sma_order=sma_order, mult_max=args.mult_max, Ngrid1D=args.ngrid,
                  tides_factor=args.tides_factor, compress=args.compress)
     with open(name_tag+"/snapshot_"+snapshot_num+"_TidesTrue" +
               "_smao{0}_mult{1}_ngrid{2}_hm{3}_ft{4}_co{5}".format(sma_order, args.mult_max, args.ngrid, len(args.halo_mass_file) > 0, args.tides_factor, args.compress) + ".p", "wb") as ff:
         pickle.dump(cl, ff)
-    print(name_tag+"/snapshot_"+snapshot_num+"_TidesTrue" +  "_smao{0}_mult{1}_ngrid{2}_hm{3}_ft{4}_co{5}.p".format(sma_order, args.mult_max, args.ngrid, len(args.halo_mass_file) > 0, args.tides_factor, args.compress))
-
+    print(time.time() - start_time)
     # cl = cluster(partpos, partvels, partmasses, partsink, partids, accel_stars + accel_gas, tides=False,
     #              sma_order=sma_order, mult_max=args.mult_max, Ngrid1D=args.ngrid, tides_factor=args.tides_factor, compress=args.compress)
     # with open(name_tag +"_snapshot_"+snapshot_num+"_TidesFalse" +
