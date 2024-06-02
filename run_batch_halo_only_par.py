@@ -16,7 +16,7 @@ snaps = glob.glob(snap_base + "*hdf5")
 start = int(sys.argv[1])
 end = len(snaps)
 if len(sys.argv[2]) > 2:
-	end = sys.argv[2]
+	end = int(sys.argv[2])
 print(start, end)
 for ii in range(start, end, 1):
 	bash_command("python3 halo_masses_single_double_par.py --non_pair --tides_factor 8.0 --snap_base {0}  {1}".format(snap_base, ii))
