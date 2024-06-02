@@ -6,8 +6,6 @@ import argparse
 
 import warnings
 
-cgs_au = 1.495978707e13
-cgs_pc = 3.0856775814913675e18
 
 def load_data(file, res_limit=0.0):
     """ file - h5pdf5 STARFORGE snapshot
@@ -86,45 +84,15 @@ def main():
 
     den, x, m, h, u, b, v, fmol, fneu, partpos, partmasses, partvels, partids, partsink, tage_myr, unit_base, partspin\
         = load_data(args.snap)
-    xuniq, indx = np.unique(x, return_index=True, axis=0)
-    muniq = m[indx]
-    huniq = h[indx]
-    vuniq = v[indx]
-    uuniq = u[indx]
-    denuniq = den[indx]
-    vuniq = vuniq.astype(np.float64)
-    xuniq = xuniq.astype(np.float64)
-    muniq = muniq.astype(np.float64)
-    huniq = huniq.astype(np.float64)
-    uuniq = uuniq.astype(np.float64)
-    denuniq = denuniq.astype(np.float64)
-    partpos = partpos.astype(np.float64)
-    partmasses = partmasses.astype(np.float64)
-    partsink = partsink.astype(np.float64)
 
-    closest_dat = {}
-    for pp, pi in zip(partpos, partids):
-        d = xuniq - pp
-        d = np.sum(d * d, axis=1) ** .5
-        closest = d < 500. * cgs_au / cgs_pc
-        closest_dat["rho_{0}".format(pi)] = denuniq[closest]
-        closest_dat["x_{0}".format(pi)] = xuniq[closest]
-        closest_dat["v_{0}".format(pi)] = vuniq[closest]
-        closest_dat["m_{0}".format(pi)] = muniq[closest]
-        closest_dat["u_{0}".format(pi)] = uuniq[closest]
-        closest_dat["h_{0}".format(pi)] = huniq[closest]
+    nsinks = len(partpos)
+    partids.shape = (nsinks, -1)
+    partsink.shape = (nsinks, -1)
+    partmasses.shape = (nsinks, -1)
 
-    with(open(name_tag + "/closest_{0}.p".format(snapshot_num), "wb")) as ff:
-        pickle.dump(closest_dat, ff)
-
-    # nsinks = len(partpos)
-    # partids.shape = (nsinks, -1)
-    # partsink.shape = (nsinks, -1)
-    # partmasses.shape = (nsinks, -1)
-    #
-    # np.savetxt(name_tag+"/snapshot_"+snapshot_num+".sink" , np.hstack((partids, partpos, partvels, partsink, partmasses)))
-    # np.savetxt(name_tag+"/snapshot_"+snapshot_num+".spin", partspin)
-    # np.savetxt(name_tag+"/snapshot_"+snapshot_num+".age", tage_myr)
+    np.savetxt(name_tag+"/snapshot_"+snapshot_num+".sink" , np.hstack((partids, partpos, partvels, partsink, partmasses)))
+    np.savetxt(name_tag+"/snapshot_"+snapshot_num+".spin", partspin)
+    np.savetxt(name_tag+"/snapshot_"+snapshot_num+".age", tage_myr)
 
 if __name__ == "__main__":
     main()
