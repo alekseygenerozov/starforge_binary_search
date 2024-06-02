@@ -15,7 +15,7 @@ snaps = glob.glob(snap_base + "*hdf5")
 # snap_base = "snapshot"
 start = int(sys.argv[1])
 end = len(snaps)
-if len(sys.argv[2]) > 2:
+if len(sys.argv) > 2:
 	end = int(sys.argv[2])
 print(start, end)
 for ii in range(start, end, 1):
