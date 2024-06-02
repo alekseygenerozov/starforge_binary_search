@@ -90,9 +90,9 @@ def main():
     partsink.shape = (nsinks, -1)
     partmasses.shape = (nsinks, -1)
 
-    np.savetxt(name_tag+"/snapshot_"+snapshot_num+".sink" , np.hstack((partids, partpos, partvels, partsink, partmasses)))
-    np.savetxt(name_tag+"/snapshot_"+snapshot_num+".spin", partspin)
-    np.savetxt(name_tag+"/snapshot_"+snapshot_num+".age", tage_myr)
+    np.savetxt(name_tag+"_snapshot_"+snapshot_num+".sink" , np.hstack((partids, partpos, partvels, partsink, partmasses)))
+    np.savetxt(name_tag+"_snapshot_"+snapshot_num+".spin", partspin)
+    np.savetxt(name_tag+"_snapshot_"+snapshot_num+".age", tage_myr)
 
 if __name__ == "__main__":
     main()
