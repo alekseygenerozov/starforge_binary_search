@@ -5,7 +5,7 @@
 #SBATCH -J R10_halo # Job name
 #SBATCH -o halo.o%j # Name of stdout output file 
 #SBATCH -e halo.e%j # Name of stderr error file 
-#SBATCH -A AST21002
+#SBATCH -A AST23034
 #SBATCH -t 48:00:00 # time in hours:minutes:sec ibrun ./hyperion input output
 
 ##  sbatch submit_halo-only_analysis.sh
