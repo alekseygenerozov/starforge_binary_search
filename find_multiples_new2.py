@@ -589,7 +589,7 @@ def main():
     parser.add_argument("--tides_factor", type=float, default=8.0, help="Prefactor for check of tidal criterion (8.0)")
     args = parser.parse_args()
 
-    snapshot_file = args.snap_base + '_{0}.hdf5'.format(args.snap)
+    snapshot_file = args.snap_base + '_{0:03d}.hdf5'.format(args.snap)
     sma_order = args.sma_order
     name_tag = args.name_tag
     snapshot_num = snapshot_file[-8:-5].replace("_","") # File number
