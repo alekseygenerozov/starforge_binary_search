@@ -551,6 +551,9 @@ class cluster(object):
         regionIDs = np.unique(self.orb_all[ii][:, -2:].astype(int).ravel())
         sysIDs = self.get_system_ids_b
         regionIDs = regionIDs[np.isin(regionIDs, sysIDs)]
+        ##Taking care of edge case where there are no further IDs in region -- 
+        if len(regionIDs) == 0:
+            return
         pos = self.get_system_position
         vel = self.get_system_vel
         mass = self.get_system_mass
