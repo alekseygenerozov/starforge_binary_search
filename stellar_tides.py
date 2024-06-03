@@ -26,14 +26,14 @@ def path_divide(p1, p2):
 
     return diff
 
-base = "/home/aleksey/Dropbox/projects/Hagai_projects/star_forge/M2e4_R10_S0_T1_B0.1_Res271_n2_sol0.5_42/"
-r2 = "_TidesTrue_smaoFalse_mult4_ngridx_hmTrue_ft8.0_coFalse.p".replace(".p", "")
+base = "/home/aleksey/Dropbox/projects/Hagai_projects/star_forge/M2e4_R10/M2e4_R10_S0_T1_B0.1_Res271_n2_sol0.5_2/"
+r2 = "_TidesTrue_smaoFalse_mult4_ngrid4_hmTrue_ft8.0_coFalse.p".replace(".p", "")
 aa = "analyze_multiples_output_" + r2 + "/"
-sim_tag = "M2e4_R10_S0_T1_B0.1_Res271_n2_sol0.5_42"
+sim_tag = "M2e4_R10_S0_T1_B0.1_Res271_n2_sol0.5_2"
 base_sink = base + "/sinkprop/{0}_snapshot_".format(sim_tag)
 
-start_snap = 100
-end_snap = 489
+start_snap = 48
+end_snap = 423
 sinks_all = []
 ts = []
 tags = []
@@ -71,8 +71,9 @@ pycol = np.where(sink_cols == "py")[0][0]
 pzcol = np.where(sink_cols == "pz")[0][0]
 hcol = np.where(sink_cols == "h")[0][0]
 
+##TO DO: FIX HARD-CODED PATHS. WHY DID I USE NON-HALO MASS DATA HERE?
 mult_lookup_file = "/home/aleksey/Dropbox/projects/Hagai_projects/star_forge/\
-M2e4_R10_S0_T1_B0.1_Res271_n2_sol0.5_42/M2e4_snapshot_489_TidesTrue_smaoFalse_mult4_ngridx_hmFalse_ft8.0_coFalse.p"
+M2e4_R10/M2e4_R10_S0_T1_B0.1_Res271_n2_sol0.5_2/M2e4_snapshot_423_TidesTrue_smaoFalse_mult4_ngrid4_hmFalse_ft8.0_coFalse.p"
 with open(mult_lookup_file, "rb") as ff:
     cl_a = pickle.load(ff)
     mults_a = np.array([sys1.multiplicity for sys1 in cl_a.systems])

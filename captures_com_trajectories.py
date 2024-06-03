@@ -44,20 +44,20 @@ def max_w_infinite(p1):
         return np.max(p1[~np.isinf(p1)])
 
 ##READING IN AUXILIARY DATA TABLES...############################################################################################
-sim_tag = "M2e4_R10_S0_T1_B0.1_Res271_n2_sol0.5_42"
-base = "/home/aleksey/Dropbox/projects/Hagai_projects/star_forge/M2e4_R10_S0_T1_B0.1_Res271_n2_sol0.5_42/"
+sim_tag = "M2e4_R10_S0_T1_B0.1_Res271_n2_sol0.5_2"
+base = "/home/aleksey/Dropbox/projects/Hagai_projects/star_forge/M2e4_R10/M2e4_R10_S0_T1_B0.1_Res271_n2_sol0.5_2/"
 r2 = sys.argv[1].replace(".p", "")
 aa = "analyze_multiples_output_" + r2 + "/"
 base_sink = base + "/sinkprop/{0}_snapshot_".format(sim_tag)
-start_snap = 100
-end_snap = 489
+start_snap = 48
+end_snap = 423
 lookup = np.load(base + aa + "/system_lookup_table.npz")['arr_0']
 bin_ids = np.load(base + aa + "/unique_bin_ids.npz", allow_pickle=True)['arr_0']
 ic = np.load(base + aa + "/ic.npz", allow_pickle=True)['arr_0']
 final_bins_arr_id = np.load(base + aa + "/final_bins_arr_id.npz")["arr_0"]
 bin_class = np.load(base + aa + "/classes.npz", allow_pickle=True)['arr_0']
 ##Tides data
-tides_norm_series = np.load(base + aa + "//tides_norm_series.npz")["arr_0"]
+# tides_norm_series = np.load(base + aa + "//tides_norm_series.npz")["arr_0"]
 
 t_first = ic[:, 0]
 conv = cgs.pc / cgs.au
@@ -151,12 +151,12 @@ for jj in range(len(bin_ids)):
     t_avg = np.inf
     t_max = np.inf
     ##Mean tidal force for binaries while separation is greater than the softening length...
-    t_series = tides_norm_series[jj]
-    if len(pfilt) > 0:
-        pfilt = pfilt[-1]
-        tmp_t_series = t_series[:pfilt + 1]
-        t_avg = np.mean(tmp_t_series[~np.isinf(tmp_t_series)])
-        t_max = np.max(tmp_t_series[~np.isinf(tmp_t_series)])
+    # t_series = tides_norm_series[jj]
+    # if len(pfilt) > 0:
+    #     pfilt = pfilt[-1]
+    #     tmp_t_series = t_series[:pfilt + 1]
+    #     t_avg = np.mean(tmp_t_series[~np.isinf(tmp_t_series)])
+    #     t_max = np.max(tmp_t_series[~np.isinf(tmp_t_series)])
 
 
     sys1_info = lookup[int(tmp_row[0]) == lookup[:, LOOKUP_PID].astype(int)]
@@ -280,15 +280,15 @@ for jj in range(len(bin_ids)):
     t_max = np.inf
     snap_max = np.inf
     ##Mean tidal force for binaries while separation is greater than the softening length...
-    t_series = tides_norm_series[jj]
-    if len(pfilt) > 0:
-        pfilt = pfilt[-1]
-        if halo_snap[jj] + 1 <= pfilt:
-            tmp_t_series = t_series[int(halo_snap[jj] + 1):pfilt + 1]
-            t_avg = np.mean(tmp_t_series[~np.isinf(tmp_t_series)])
-            t_max = np.max(tmp_t_series[~np.isinf(tmp_t_series)])
-            snap_max = np.where(t_series == t_max)[0][0]
-    #
+    # t_series = tides_norm_series[jj]
+    # if len(pfilt) > 0:
+    #     pfilt = pfilt[-1]
+    #     if halo_snap[jj] + 1 <= pfilt:
+    #         tmp_t_series = t_series[int(halo_snap[jj] + 1):pfilt + 1]
+    #         t_avg = np.mean(tmp_t_series[~np.isinf(tmp_t_series)])
+    #         t_max = np.max(tmp_t_series[~np.isinf(tmp_t_series)])
+    #         snap_max = np.where(t_series == t_max)[0][0]
+
     # if np.isinf(t_max) or t_max >= 0.01:
     #     continue
     # fig, axs = plt.subplots(figsize=(20, 20), nrows=2, ncols=2)

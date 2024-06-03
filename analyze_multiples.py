@@ -498,16 +498,16 @@ def get_com(dat):
     return pos1, vel1, h1, m1
 
 def main():
-    sim_tag = "M2e4_R10_S0_T1_B0.1_Res271_n2_sol0.5_42"
-    base = "/home/aleksey/Dropbox/projects/Hagai_projects/star_forge/{0}/".format(sim_tag)
-    r1 = "/home/aleksey/Dropbox/projects/Hagai_projects/star_forge/{0}/M2e4_snapshot_".format(sim_tag)
+    sim_tag = "M2e4_R10_S0_T1_B0.1_Res271_n2_sol0.5_2"
+    base = "/home/aleksey/Dropbox/projects/Hagai_projects/star_forge/M2e4_R10/{0}/".format(sim_tag)
+    r1 = "/home/aleksey/Dropbox/projects/Hagai_projects/star_forge/M2e4_R10/{0}/M2e4_snapshot_".format(sim_tag)
     r2 = sys.argv[1]
     base_sink = base + "/sinkprop/{0}_snapshot_".format(sim_tag)
     r2_nosuff = r2.replace(".p", "")
 
     start_snap_sink = 48
-    start_snap = 100
-    end_snap = 489
+    start_snap = 48
+    end_snap = 423
     aa = "analyze_multiples_output_{0}/".format(r2_nosuff)
     bc.bash_command("mkdir " + base + aa)
     with open(base + aa + "/mult_data_path", "w") as ff:
@@ -583,17 +583,17 @@ def main():
     first_snap_orb = get_orbit_fst(base_sink, sys_lookup, fst_idx, bin_ids, outer_idx)
     np.savez(base + aa + "/fst_sma", first_snap_orb)
 
-    uids, ic, outer_idx, inner_idx1, inner_idx2 = get_unique_triples(r1, r2, start_snap, end_snap)
-    fst_idx = get_fst(first_snap_idx, uids)
-    tri_class = classify_triples(r1, r2, uids, ic.astype(int))
-    np.savez(base + aa + "/tri_ic", ic)
-    np.savez(base + aa + "/tri_ids", uids)
-    np.savez(base + aa + "/tri_class", tri_class)
-    first_snap_orb = get_orbit_fst(base_sink, sys_lookup, fst_idx, uids, outer_idx)
-    np.savez(base + aa + "/tri_fst_sma", first_snap_orb)
-    np.savez(base + aa + "/tri_fst", fst_idx)
-    np.savez(base + aa + "/tri_mults_filt", mult_filt_id(outer_idx, ic, sys_lookup))
-    np.savez(base + aa + "/tri_mults_filt_b", mult_filt_id(inner_idx1, ic, sys_lookup, mult_max=2) & mult_filt_id(inner_idx2, ic, sys_lookup, mult_max=2))
+    # uids, ic, outer_idx, inner_idx1, inner_idx2 = get_unique_triples(r1, r2, start_snap, end_snap)
+    # fst_idx = get_fst(first_snap_idx, uids)
+    # tri_class = classify_triples(r1, r2, uids, ic.astype(int))
+    # np.savez(base + aa + "/tri_ic", ic)
+    # np.savez(base + aa + "/tri_ids", uids)
+    # np.savez(base + aa + "/tri_class", tri_class)
+    # first_snap_orb = get_orbit_fst(base_sink, sys_lookup, fst_idx, uids, outer_idx)
+    # np.savez(base + aa + "/tri_fst_sma", first_snap_orb)
+    # np.savez(base + aa + "/tri_fst", fst_idx)
+    # np.savez(base + aa + "/tri_mults_filt", mult_filt_id(outer_idx, ic, sys_lookup))
+    # np.savez(base + aa + "/tri_mults_filt_b", mult_filt_id(inner_idx1, ic, sys_lookup, mult_max=2) & mult_filt_id(inner_idx2, ic, sys_lookup, mult_max=2))
 
     ##inner_idx1, inner_idx2...
 #######################################################################################################################################################################
