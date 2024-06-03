@@ -62,7 +62,7 @@ bin_class = np.load(base + aa + "/classes.npz", allow_pickle=True)['arr_0']
 t_first = ic[:, 0]
 conv = cgs.pc / cgs.au
 snap_interval = 2.47e4
-##TRANSFORMATION TO PARTICLE ...############################################################################################
+##TRANSFORMATION TO PARTICLE ############################################################################################
 sinks_all = []
 ts = []
 tags = []

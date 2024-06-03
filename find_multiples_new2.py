@@ -404,7 +404,7 @@ class cluster(object):
                 d = np.sum(d * d, axis=1) ** .5
                 ord = np.argsort(d)
                 for j in ord[1:51]:
-                    orb_region.append(np.concatenate((get_orbit(pos[i], pos[j], vel[i], vel[j], mass[i], mass[j], h1=soft[0], h2=soft[1]),
+                    orb_region.append(np.concatenate((get_orbit(pos[i], pos[j], vel[i], vel[j], mass[i], mass[j], h1=soft[i], h2=soft[j]),
                                                       [self.systems[idx[i]].ids[0], self.systems[idx[j]].ids[0], self.systems[idx[i]].sysID, self.systems[idx[j]].sysID])))
             self.orb_all.append(np.array(orb_region))
 
