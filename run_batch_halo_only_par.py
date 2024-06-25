@@ -13,9 +13,8 @@ with open("data_loc", "r") as ff:
 snaps = glob.glob(snap_base + "*hdf5")
 
 start = int(sys.argv[1])
-interval = int(sys.argv[2])
+end = int(sys.argv[2])
 if interval < 0:
-	interval = len(snaps)
-end = start + interval
-for ii in range(start, end, 1):
+	interval = len(snaps) - 1
+for ii in range(start, end + 1, 1):
 	bash_command(f"python3 halo_masses_single_double_par.py --non_pair --tides_factor {sys.argv[3]} --snap_base {snap_base}  {ii}")
