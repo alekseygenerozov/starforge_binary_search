@@ -44,13 +44,13 @@ def max_w_infinite(p1):
         return np.max(p1[~np.isinf(p1)])
 
 ##READING IN AUXILIARY DATA TABLES...############################################################################################
-sim_tag = "M2e4_R10_S0_T1_B0.1_Res271_n2_sol0.5_2"
-base = "/home/aleksey/Dropbox/projects/Hagai_projects/star_forge/M2e4_R10/M2e4_R10_S0_T1_B0.1_Res271_n2_sol0.5_2/"
+sim_tag = "M2e4_R10_S0_T1_B0.1_Res271_n2_sol0.5_42"
+base = "/home/aleksey/Dropbox/projects/Hagai_projects/star_forge/M2e4_R10/M2e4_R10_S0_T1_B0.1_Res271_n2_sol0.5_42/"
 r2 = sys.argv[1].replace(".p", "")
 aa = "analyze_multiples_output_" + r2 + "/"
 base_sink = base + "/sinkprop/{0}_snapshot_".format(sim_tag)
-start_snap = 48
-end_snap = 423
+start_snap = 100
+end_snap = 489
 lookup = np.load(base + aa + "/system_lookup_table.npz")['arr_0']
 bin_ids = np.load(base + aa + "/unique_bin_ids.npz", allow_pickle=True)['arr_0']
 ic = np.load(base + aa + "/ic.npz", allow_pickle=True)['arr_0']
@@ -121,6 +121,8 @@ fig_idx = 0
 dens_series = np.zeros((len(bin_ids), end_snap + 1))
 cross_sections = np.zeros((len(bin_ids), end_snap + 1))
 force_series = np.zeros((len(bin_ids), end_snap + 1))
+mean_mass = np.zeros((len(bin_ids), end_snap + 1))
+sigma_series = np.zeros((len(bin_ids), end_snap + 1))
 halo_snap = np.zeros(len(bin_ids))
 closest = {}
 
@@ -238,6 +240,7 @@ for jj in range(len(bin_ids)):
     closest[str(np.sort(list(bin_ids[jj])))] = u_tags_exclude
     ##Compute time series of the local density for this binary, using the 32 closes particles...
     dens_series[jj] = path_divide(np.sum(mass_all[:, :nclose], axis=1), path_diff_all[:, nclose-1] ** 3.)
+    mean_mass[jj] = np.mean(mass_all[:, :nclose], axis=1)
     ##Need to calculate the velocity dispersions...
     v_close_x = vel_all_x[:, :nclose]
     sigma_x2 = np.mean(v_close_x**2., axis=1) - np.mean(v_close_x, axis=1)**2.
@@ -248,7 +251,7 @@ for jj in range(len(bin_ids)):
     sigma_2 = sigma_x2 + sigma_y2 + sigma_z2
     sigma_2[np.isnan(sigma_2)] = np.inf
     cross_sections[jj] = path_divide(psep * sfc.GN * (tmp1[:, mcol] + tmp2[:, mcol]), (sigma_2))
-
+    sigma_series[jj] = sigma_2**.5
     ##Minimum closest approach over all particles
     order = np.argsort(closest_approaches)
     closest_tags = utags_str[order]
@@ -390,7 +393,8 @@ for jj in range(len(bin_ids)):
     # fig_idx += 1
     #
     # plt.clf()
-np.savez(base + aa + "dens_series_final_bins_{0}.npz".format(nclose), dens_series, halo_snap, force_series, cross_sections=cross_sections)
+np.savez(base + aa + "dens_series_final_bins_{0}.npz".format(nclose), dens=dens_series, hs=halo_snap,
+         force=force_series, cross_sections=cross_sections, sigma=sigma_series, mean_mass=mean_mass)
 # with open(base + aa + "closest.p", "wb") as ff:
 #     pickle.dump(closest, ff)
 ###########################################################################

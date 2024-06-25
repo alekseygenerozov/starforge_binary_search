@@ -133,6 +133,43 @@ def get_orbit(p1, p2, v1, v2, m1, m2, h1=0, h2=0):
     return a_bin, e_bin, i_bin, dp, com[0], com[1], com[2], com_vel[0], com_vel[1], com_vel[2], m1, m2
 
 
+def get_energy(p1, p2, v1, v2, m1, m2, h1=0, h2=0):
+    """
+    Auxiliary function to get binary properties for two particles.
+
+    :param Array-like p1: -- Array with 1st particle position (3D)
+    :param Array-like p2: -- Array with 2nd particle position (3D)
+    :param Array-like v1: -- Array with 1st particle velocity (3D)
+    :param Array-like v2: -- Array with 2nd particle velocity (3D)
+    :param float m1: -- 1st particle mass
+    :param float m2: -- 2nd particle mass
+
+    :return: Binding energy (-pe) and kinetic energy
+    :rtype: tuple
+    """
+    dp = np.linalg.norm(p1 - p2)
+
+    com = (m1*p1 + m2*p2)/(m1 + m2)
+    com_vel = (m1*v1 + m2*v2)/(m1 + m2)
+    ##Particle velocities in com frame
+    p1_com = p1 - com
+    p2_com = p2 - com
+    v1_com = v1 - com_vel
+    v2_com = v2 - com_vel
+
+    v12 = (v1_com[0]**2. + v1_com[1]**2. + v1_com[2]**2.)
+    v22 = (v2_com[0]**2. + v2_com[1]**2. + v2_com[2]**2.)
+
+    ##Kinetic and potential energies
+    ke = 0.5*m1*v12 + 0.5*m2*v22
+    ##Potential energy ##TRY REPLACING WITH FUNCTIONALITY FROM PYTREEGRAV...
+    # pe = G*m1*m2/dp
+    pe = -PE(np.array([p1_com, p2_com]), np.array([m1, m2]), np.array([h1, h2]))
+
+
+    return pe, ke
+
+
 def select_in_subregion(x, Ngrid1D=1):
     """
     Partitions array of 3D positions into subregions
