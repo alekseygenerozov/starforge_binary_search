@@ -637,8 +637,10 @@ def main():
 
     # den, x, m, h, u, b, v, t, fmol, fneu, partpos, partmasses, partvels, partids, tage_myr, unit_base = load_data(snapshot_file, res_limit=1e-3)
     # cl = cluster(partpos, partvels, partmasses, partids)
-    den, x, m, h, u, b, v, fmol, fneu, partpos, partmasses, partvels, partids, partsink, tage_myr, unit_base = load_data(snapshot_file, res_limit=1e-3)
-    ##TO DO: UPDATE ONCE WE HAVE METHOD TO STORE HALO DATA.
+    try:
+        den, x, m, h, u, b, v, fmol, fneu, partpos, partmasses, partvels, partids, partsink, tage_myr, unit_base = load_data(snapshot_file, res_limit=1e-3)
+    except KeyError:
+        return
     halo_masses = np.zeros(len(partmasses))
     if args.halo_mass_file:
         halo_mass_file = args.halo_mass_file + "_{0}_comp{1}_tf{2}".format(args.snap, args.compress, args.tides_factor)
