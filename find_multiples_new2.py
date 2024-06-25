@@ -115,7 +115,9 @@ def get_orbit(p1, p2, v1, v2, m1, m2, h1=0, h2=0):
     ke = 0.5*m1*v12 + 0.5*m2*v22
     ##Potential energy ##TRY REPLACING WITH FUNCTIONALITY FROM PYTREEGRAV...
     # pe = G*m1*m2/dp
-    pe = -PE(np.array([p2_com, p1_com]), np.array([m1, m2]), np.array([h1, h2]))
+    ##Flipped p2_com and p1_com -- does not matter because we are only considering two-body systems...
+    ##CHECK ONE MORE TIME
+    pe = -PE(np.array([p1_com, p2_com]), np.array([m1, m2]), np.array([h1, h2]))
 
     a_bin = sfc.GN*(m1*m2)/(2.*(pe-ke))
     ##Angular momentum in binary com
@@ -417,7 +419,6 @@ class cluster(object):
     def get_system_mult(self):
         return np.array([ss.multiplicity for ss in self.systems])
 
-    ##TO DO: ONLY GET XX CLOSEST STARS RATHER THAN ALL COMBOS!!!
     def _calculate_orbits(self):
         """
         Computes pairwise orbits in each subregion, populating orb_all.
@@ -606,7 +607,7 @@ class cluster(object):
         d = np.sum(d * d, axis=1) ** .5
         order = np.argsort(d)
 
-        ##new systems will not be included in regionIDs, so we have slightly different indexing _calc_orbits
+        ##new systems will not be included in regionIDs, so we have slightly different indexing fron _calc_orbits
         for id_it in regionIDs[order][:50]:
             j = np.where(id_it == sysIDs)[0][0]
             tmp = get_orbit(pos[idx1], pos[j], vel[idx1], vel[j], mass[idx1], mass[j], h1=soft[idx1], h2=soft[j])
