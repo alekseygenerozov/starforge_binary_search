@@ -644,7 +644,7 @@ def main():
     halo_masses = np.zeros(len(partmasses))
     if args.halo_mass_file:
         halo_mass_file = args.halo_mass_file + "_{0}_comp{1}_tf{2}".format(args.snap, args.compress, args.tides_factor)
-        halo_masses = np.atleast_2d(np.genfromtxt(halo_mass_file)[:, 0])
+        halo_masses = np.atleast_2d(np.genfromtxt(halo_mass_file))[:,0]
     partmasses += halo_masses
 
     xuniq, indx = np.unique(x, return_index=True, axis=0)
