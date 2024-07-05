@@ -11,6 +11,9 @@ import find_multiples_new2
 import cgs_const as cgs
 import starforge_constants as sfc
 
+import tracemalloc
+tracemalloc.start()
+
 LOOKUP_SNAP = 0
 LOOKUP_PID = 1
 LOOKUP_MTOT = 4
@@ -126,7 +129,11 @@ sigma_series = np.zeros((len(bin_ids), end_snap + 1))
 halo_snap = np.zeros(len(bin_ids))
 closest = {}
 
+print(base + aa + "closest.p")
+snapshot1 = tracemalloc.take_snapshot()
+
 for jj in range(len(bin_ids)):
+    print(jj)
     # if not np.isin(jj, final_bins_arr_id):
     #     continue
 
@@ -239,8 +246,8 @@ for jj in range(len(bin_ids)):
     u_tags_exclude = np.take_along_axis(u_tags_exclude, path_diff_all_order, axis=1)
     closest[str(np.sort(list(bin_ids[jj])))] = u_tags_exclude
     ##Compute time series of the local density for this binary, using the 32 closes particles...
-    dens_series[jj] = path_divide(np.sum(mass_all[:, :nclose], axis=1), path_diff_all[:, nclose-1] ** 3.)
-    mean_mass[jj] = np.mean(mass_all[:, :nclose], axis=1)
+    dens_series[jj] =  path_divide(np.ones(len(path_diff_all)) * nclose, path_diff_all[:, nclose-1] ** 3.)
+    mean_mass[jj] = np.mean(mass_all[:, :nclose]**2., axis=1)**.5
     ##Need to calculate the velocity dispersions...
     v_close_x = vel_all_x[:, :nclose]
     sigma_x2 = np.mean(v_close_x**2., axis=1) - np.mean(v_close_x, axis=1)**2.
@@ -282,6 +289,17 @@ for jj in range(len(bin_ids)):
     t_avg = np.inf
     t_max = np.inf
     snap_max = np.inf
+    del path_diff_all, mass_all, vel_all_x, vel_all_y, vel_all_z, u_tags_exclude, path_diff_all_order
+
+    snapshot2 = tracemalloc.take_snapshot()
+    top_stats = snapshot2.compare_to(snapshot1, 'lineno')
+
+    print(f"Iteration {jj}")
+    for stat in top_stats[:10]:
+        print(stat)
+
+    snapshot1 = snapshot2  # Update snapshot for next iteration
+
     ##Mean tidal force for binaries while separation is greater than the softening length...
     # t_series = tides_norm_series[jj]
     # if len(pfilt) > 0:
@@ -393,7 +411,7 @@ for jj in range(len(bin_ids)):
     # fig_idx += 1
     #
     # plt.clf()
-np.savez(base + aa + "dens_series_final_bins_{0}.npz".format(nclose), dens=dens_series, hs=halo_snap,
+np.savez(base + aa + "dens_series_bins_nrms_{0}.npz".format(nclose), dens=dens_series, hs=halo_snap,
          force=force_series, cross_sections=cross_sections, sigma=sigma_series, mean_mass=mean_mass)
 # with open(base + aa + "closest.p", "wb") as ff:
 #     pickle.dump(closest, ff)
