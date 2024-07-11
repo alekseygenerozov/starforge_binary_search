@@ -67,7 +67,7 @@ def main():
     non_pair = args.non_pair
     name_tag = args.name_tag
 
-    snap_file = args.snap_base + '_{0}.hdf5'.format(snap_idx)
+    snap_file = args.snap_base + '_{0:03d}.hdf5'.format(int(snap_idx))
     snapshot_num = snap_file[-8:-5].replace("_", "")  # File number
 
     den, x, m, h, u, b, v, fmol, fneu, partpos, partmasses, partvels, partids, partsink, tage_myr, unit_base =\
@@ -95,11 +95,11 @@ def main():
         for ii in range(len(partids)):
             halo_idx = gas_dat_h5["halo_{0}".format(partids[ii])]
             gas_dat_h5.create_dataset("halo_{0}_h".format(partids[ii]), data=huniq[halo_idx])
-            #gas_dat_h5.create_dataset("halo_{0}_rho".format(partids[ii]), data=denuniq[halo_idx])
-            # gas_dat_h5.create_dataset("halo_{0}_x".format(partids[ii]), data=xuniq[halo_idx])
-            # gas_dat_h5.create_dataset("halo_{0}_v".format(partids[ii]), data=vuniq[halo_idx])
-            # gas_dat_h5.create_dataset("halo_{0}_u".format(partids[ii]), data=uuniq[halo_idx])
-            # gas_dat_h5.create_dataset("halo_{0}_m".format(partids[ii]), data=muniq[halo_idx])
+            gas_dat_h5.create_dataset("halo_{0}_rho".format(partids[ii]), data=denuniq[halo_idx])
+            gas_dat_h5.create_dataset("halo_{0}_x".format(partids[ii]), data=xuniq[halo_idx])
+            gas_dat_h5.create_dataset("halo_{0}_v".format(partids[ii]), data=vuniq[halo_idx])
+            gas_dat_h5.create_dataset("halo_{0}_u".format(partids[ii]), data=uuniq[halo_idx])
+            gas_dat_h5.create_dataset("halo_{0}_m".format(partids[ii]), data=muniq[halo_idx])
 
 
 
