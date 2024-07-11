@@ -13,6 +13,8 @@ import starforge_constants as sfc
 
 import tracemalloc
 tracemalloc.start()
+import gc
+import glob
 
 LOOKUP_SNAP = 0
 LOOKUP_PID = 1
@@ -22,7 +24,7 @@ LOOKUP_SMA = 6
 LOOKUP_ECC = 7
 
 # def calculate_acceleration(path_lookup, tag1, tag2):
-nclose = 32
+nclose = 10
 
 def subtract_path(p1, p2):
     assert len(p1) == len(p2)
@@ -52,15 +54,23 @@ base = "/home/aleksey/Dropbox/projects/Hagai_projects/star_forge/M2e4_R10/M2e4_R
 r2 = sys.argv[1].replace(".p", "")
 aa = "analyze_multiples_output_" + r2 + "/"
 base_sink = base + "/sinkprop/{0}_snapshot_".format(sim_tag)
-start_snap = 100
-end_snap = 489
 lookup = np.load(base + aa + "/system_lookup_table.npz")['arr_0']
 bin_ids = np.load(base + aa + "/unique_bin_ids.npz", allow_pickle=True)['arr_0']
 ic = np.load(base + aa + "/ic.npz", allow_pickle=True)['arr_0']
-final_bins_arr_id = np.load(base + aa + "/final_bins_arr_id.npz")["arr_0"]
+# final_bins_arr_id = np.load(base + aa + "/final_bins_arr_id.npz")["arr_0"]
 bin_class = np.load(base + aa + "/classes.npz", allow_pickle=True)['arr_0']
 ##Tides data
 # tides_norm_series = np.load(base + aa + "//tides_norm_series.npz")["arr_0"]
+#################################################################################################################################
+##Getting starting and ending snapshots
+snaps = [xx.replace(base_sink, "").replace(".sink", "") for xx in glob.glob(base_sink + "*.sink")]
+snaps = np.array(snaps).astype(int)
+
+##Get snapshot numbers automatically
+start_snap_sink = min(snaps)
+start_snap = min(snaps)
+end_snap = max(snaps)
+#################################################################################################################################
 
 t_first = ic[:, 0]
 conv = cgs.pc / cgs.au
@@ -124,10 +134,11 @@ fig_idx = 0
 dens_series = np.zeros((len(bin_ids), end_snap + 1))
 cross_sections = np.zeros((len(bin_ids), end_snap + 1))
 force_series = np.zeros((len(bin_ids), end_snap + 1))
+rms_mass = np.zeros((len(bin_ids), end_snap + 1))
 mean_mass = np.zeros((len(bin_ids), end_snap + 1))
 sigma_series = np.zeros((len(bin_ids), end_snap + 1))
 halo_snap = np.zeros(len(bin_ids))
-closest = {}
+closest = []
 
 print(base + aa + "closest.p")
 snapshot1 = tracemalloc.take_snapshot()
@@ -206,21 +217,22 @@ for jj in range(len(bin_ids)):
         path_diff = subtract_path(path_lookup[uu][:, pxcol:pzcol + 1], coms)
         path_diff = np.sum(path_diff * path_diff, axis=1)**.5
         path_diff_all.append(path_diff)
-        mass_all.append(path_lookup[uu][:, mcol])
+        mass_all.append(path_lookup[uu][:, mtotcol])
         vel_all_x.append(path_lookup[uu][:, vxcol])
         vel_all_y.append(path_lookup[uu][:, vycol])
         vel_all_z.append(path_lookup[uu][:, vzcol])
         ##Closest approach for this particle
-        order = np.argsort(path_diff)
-        closest_approaches_time[ii] = path_lookup[uu][order[0]][0] * snap_interval
-        closest_approaches[ii] = path_diff[order[0]] * conv
+        # order = np.argsort(path_diff)
+        # closest_approaches_time[ii] = path_lookup[uu][order[0]][0] * snap_interval
+        # closest_approaches[ii] = path_diff[order[0]] * conv
         ##Get separation normalized by binary separation
-        path_diff_norm = path_divide(path_diff, psep)
-        order_norm = np.argsort(path_diff_norm)
+        # path_diff_norm = path_divide(path_diff, psep)
+        # order_norm = np.argsort(path_diff_norm)
         ##Time where (normalized) closest approach occurs
-        closest_approaches_norm_time[ii] = path_lookup[uu][order_norm[0]][0] * snap_interval
+        ##Time where (normalized) closest approach occurs
+        # closest_approaches_norm_time[ii] = path_lookup[uu][order_norm[0]][0] * snap_interval
         ##Normalized closest approach
-        closest_approaches_norm[ii] = path_diff_norm[order_norm[0]]
+        # closest_approaches_norm[ii] = path_diff_norm[order_norm[0]]
         # closest_approaches_norm[ii] = path_diff[order[0]]
         ##FORCE ON EACH PARTICLE
         ##NEED TO CALL PYTREEGRAV
@@ -244,10 +256,12 @@ for jj in range(len(bin_ids)):
     vel_all_y = np.take_along_axis(vel_all_y, path_diff_all_order, axis=1)
     vel_all_z = np.take_along_axis(vel_all_z, path_diff_all_order, axis=1)
     u_tags_exclude = np.take_along_axis(u_tags_exclude, path_diff_all_order, axis=1)
-    closest[str(np.sort(list(bin_ids[jj])))] = u_tags_exclude
+    ##All rows in u_tags_exclude are the same (UNNECESSARY -- TO FIX). For now just take the first row...
+    closest.append(u_tags_exclude[:, 0])
     ##Compute time series of the local density for this binary, using the 32 closes particles...
     dens_series[jj] =  path_divide(np.ones(len(path_diff_all)) * nclose, path_diff_all[:, nclose-1] ** 3.)
-    mean_mass[jj] = np.mean(mass_all[:, :nclose]**2., axis=1)**.5
+    mean_mass[jj] = np.mean(mass_all[:, :nclose], axis=1)
+    rms_mass[jj] = np.mean(mass_all[:, :nclose]**2., axis=1)**.5
     ##Need to calculate the velocity dispersions...
     v_close_x = vel_all_x[:, :nclose]
     sigma_x2 = np.mean(v_close_x**2., axis=1) - np.mean(v_close_x, axis=1)**2.
@@ -260,15 +274,15 @@ for jj in range(len(bin_ids)):
     cross_sections[jj] = path_divide(psep * sfc.GN * (tmp1[:, mcol] + tmp2[:, mcol]), (sigma_2))
     sigma_series[jj] = sigma_2**.5
     ##Minimum closest approach over all particles
-    order = np.argsort(closest_approaches)
-    closest_tags = utags_str[order]
-    closest_approaches = closest_approaches[order]
-    closest_approaches_time = closest_approaches_time[order]
+    # order = np.argsort(closest_approaches)
+    # closest_tags = utags_str[order]
+    # closest_approaches = closest_approaches[order]
+    # closest_approaches_time = closest_approaches_time[order]
     #Minimum normalized closest approach over all particles
-    order_norm = np.argsort(closest_approaches_norm)
-    closest_tags_norm = utags_str[order_norm]
-    closest_approaches_norm = closest_approaches_norm[order_norm]
-    closest_approaches_norm_time = closest_approaches_norm_time[order_norm]
+    # order_norm = np.argsort(closest_approaches_norm)
+    # closest_tags_norm = utags_str[order_norm]
+    # closest_approaches_norm = closest_approaches_norm[order_norm]
+    # closest_approaches_norm_time = closest_approaches_norm_time[order_norm]
 
     ##Halo masses
     tmp_halo_mass = sys1_info[:, LOOKUP_MTOT] - sys1_info[:, LOOKUP_M]
@@ -289,16 +303,17 @@ for jj in range(len(bin_ids)):
     t_avg = np.inf
     t_max = np.inf
     snap_max = np.inf
-    del path_diff_all, mass_all, vel_all_x, vel_all_y, vel_all_z, u_tags_exclude, path_diff_all_order
+    del path_diff_all, mass_all, vel_all_x, vel_all_y, vel_all_z, u_tags_exclude, path_diff_all_order, tmp1, tmp2
 
-    snapshot2 = tracemalloc.take_snapshot()
-    top_stats = snapshot2.compare_to(snapshot1, 'lineno')
+    # snapshot2 = tracemalloc.take_snapshot()
+    # top_stats = snapshot2.compare_to(snapshot1, 'lineno')
+    #
+    # print(f"Iteration {jj}")
+    # for stat in top_stats[:10]:
+    #     print(stat)
+    # gc.collect()
 
-    print(f"Iteration {jj}")
-    for stat in top_stats[:10]:
-        print(stat)
-
-    snapshot1 = snapshot2  # Update snapshot for next iteration
+    # snapshot1 = snapshot2  # Update snapshot for next iteration
 
     ##Mean tidal force for binaries while separation is greater than the softening length...
     # t_series = tides_norm_series[jj]
@@ -412,7 +427,8 @@ for jj in range(len(bin_ids)):
     #
     # plt.clf()
 np.savez(base + aa + "dens_series_bins_nrms_{0}.npz".format(nclose), dens=dens_series, hs=halo_snap,
-         force=force_series, cross_sections=cross_sections, sigma=sigma_series, mean_mass=mean_mass)
-# with open(base + aa + "closest.p", "wb") as ff:
-#     pickle.dump(closest, ff)
+         force=force_series, cross_sections=cross_sections, sigma=sigma_series, mean_mass=mean_mass,
+         rms_mass=rms_mass)
+with open(base + aa + "closest.p", "wb") as ff:
+    pickle.dump(closest, ff)
 ###########################################################################

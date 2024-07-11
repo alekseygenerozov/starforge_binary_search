@@ -203,7 +203,7 @@ def select_in_subregion(x, Ngrid1D=1):
         regions.append((x[:, 0] >= xlim) & (x[:, 0] <= (xlim+dx)) & (x[:, 1] >= ylim) & (x[:, 1] <= (ylim+dy)) & (x[:, 2] >= zlim) & (x[:, 2] <= (zlim+dz)))
     return regions
 
-def check_tides_sys(sys1, sys2, tides_factor=8.0, compress=False):
+def check_tides_sys(sys1, sys2, tides_factor=8.0, compress=False, debug=False):
     """
     Check whether tidal force is greater than tides_factor times two-body force between two systems.
 
@@ -243,7 +243,8 @@ def check_tides_sys(sys1, sys2, tides_factor=8.0, compress=False):
     if compress:
         compress_check = np.dot(a_tides, com_2 - com_1) > 0
         tidal_crit = tidal_crit or compress_check
-
+    if debug:
+        return tidal_crit, sys1.accel, com_accel, a_internal_com, a_tides
     return (tidal_crit), a_tides
 
 def flatten_ids(id):

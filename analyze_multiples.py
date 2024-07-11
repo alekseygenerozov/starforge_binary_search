@@ -498,16 +498,19 @@ def get_com(dat):
     return pos1, vel1, h1, m1
 
 def main():
-    sim_tag = "M2e4_R10_S0_T1_B0.1_Res271_n2_sol0.5_2"
+    sim_tag = f"M2e4_R10_S0_T1_B0.1_Res271_n2_sol0.5_{sys.argv[1]}"
     base = "/home/aleksey/Dropbox/projects/Hagai_projects/star_forge/M2e4_R10/{0}/".format(sim_tag)
     r1 = "/home/aleksey/Dropbox/projects/Hagai_projects/star_forge/M2e4_R10/{0}/M2e4_snapshot_".format(sim_tag)
-    r2 = sys.argv[1]
+    r2 = sys.argv[2]
     base_sink = base + "/sinkprop/{0}_snapshot_".format(sim_tag)
     r2_nosuff = r2.replace(".p", "")
+    snaps = [xx.replace(base_sink, "").replace(".sink", "") for xx in glob.glob(base_sink + "*.sink")]
+    snaps = np.array(snaps).astype(int)
 
-    start_snap_sink = 48
-    start_snap = 48
-    end_snap = 423
+    ##Get snapshot numbers automatically
+    start_snap_sink = min(snaps)
+    start_snap = min(snaps)
+    end_snap = max(snaps)
     aa = "analyze_multiples_output_{0}/".format(r2_nosuff)
     bc.bash_command("mkdir " + base + aa)
     with open(base + aa + "/mult_data_path", "w") as ff:
@@ -572,7 +575,6 @@ def main():
     final_bins = ids_a[mults_a == 2]
     final_bin_histories_stack = get_bin_histories(final_bins, sys_lookup)
     np.savez(base + aa + "/final_bin_histories_stack", final_bin_histories_stack)
-
     final_bins_arr_id = np.array([np.where(bin_ids == row)[0][0] for row in final_bins])
     np.savez(base + aa + "/final_bins_arr_id", final_bins_arr_id)
 
