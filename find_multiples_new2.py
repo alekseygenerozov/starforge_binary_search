@@ -6,6 +6,7 @@ import pickle
 import pytreegrav
 import argparse
 import starforge_constants as sfc
+# import tqdm
 
 
 def load_data(file, res_limit=0.0):
@@ -660,46 +661,36 @@ def main():
     partsink = partsink.astype(np.float64)
 
     ##MAKE SURE THIS IS CONSISTENT WITH THE SIMULATION (Theta, tree gravity versus brute force)
-    print("Original acceleration method")
+    # print("Original acceleration method")
     start_time = time.time()
-    accel_gas_0 = pytreegrav.AccelTarget(partpos, xuniq, muniq,
-                                           softening_target=partsink, softening_source=huniq,
-                                           theta=0.5, G=sfc.GN, method='tree')
-    print("Old accel:", start_time - time.time())
-    accel_gas = np.zeros((len(partpos), 3))
-    print("New acceleration method.")
-    start_time = time.time()
-    with h5py.File(args.halo_mass_file.replace("M2e4", "") + "_{0}_comp{1}_tf{2}.hdf5", 'r') as gas_dat_h5:
+
+    ##Exclude particles that are in halos, so that the halos are collapsed once and for all(!!!)
+    halo_mask = np.ones(len(xuniq), bool)
+    with h5py.File(args.halo_mass_file.replace("M2e4", "") + f"_{args.snap}_comp{args.compress}_tf{args.tides_factor}.hdf5", 'r') as gas_dat_h5:
         for ii in range(len(partpos)):
             halo_idx = gas_dat_h5["halo_{0}".format(partids[ii])]
-            mask = np.ones(xuniq.shape, bool)
             if (halo_idx.shape == (1, 2)) or len(halo_idx)==0:
-                pass
-            else:
-                mask[halo_idx] = False
-            accel_gas[ii] = pytreegrav.AccelTarget(partpos[ii], xuniq[mask], muniq[mask],
-                                        softening_target=partsink[mask], softening_source=huniq[mask],
-                                       theta=0.5, G=sfc.GN, method='tree').ravel()
-    print("New accel:", start_time - time.time())
-    breakpoint()
+                continue
+            halo_mask[halo_idx] = False
 
-    accel_stars = pytreegrav.Accel(partpos, partmasses, partsink, theta=0.5, G=sfc.GN, method='bruteforce')
-    #
+    accel_gas = pytreegrav.AccelTarget(partpos, xuniq[halo_mask], muniq[halo_mask],
+                                           softening_target=partsink, softening_source=huniq[halo_mask],
+                                           theta=0.5, G=sfc.GN, method='tree')
+    # print("Old accel:", start_time - time.time())
+    print("New acceleration method.")
     start_time = time.time()
+
+    print("New accel 2:", time.time() - start_time)
+    accel_stars = pytreegrav.Accel(partpos, partmasses, partsink, theta=0.5, G=sfc.GN, method='bruteforce')
     cl = cluster(partpos, partvels, partmasses, partsink, partids, accel_stars + accel_gas,
                  sma_order=sma_order, mult_max=args.mult_max, Ngrid1D=args.ngrid,
                  tides_factor=args.tides_factor, compress=args.compress)
-    print("Binary search:", start_time - time.time())
-    # with open(name_tag+"_snapshot_"+snapshot_num+"_TidesTrue" +
-    #           "_smao{0}_mult{1}_ngrid{2}_hm{3}_ft{4}_co{5}".format(sma_order, args.mult_max, args.ngrid, len(args.halo_mass_file) > 0, args.tides_factor, args.compress) + ".p", "wb") as ff:
-    #     pickle.dump(cl, ff)
-    # print(time.time() - start_time)
+    with open(name_tag+"_snapshot_"+snapshot_num+"_TidesTrue" +
+              "_smao{0}_mult{1}_ngrid{2}_hm{3}_ft{4}_co{5}".format(sma_order, args.mult_max, args.ngrid, len(args.halo_mass_file) > 0, args.tides_factor, args.compress) + ".p", "wb") as ff:
+        pickle.dump(cl, ff)
+    print("Binary search:", time.time() - start_time)
     # cl = cluster(partpos, partvels, partmasses, partsink, partids, accel_stars + accel_gas, tides=False,
     #              sma_order=sma_order, mult_max=args.mult_max, Ngrid1D=args.ngrid, tides_factor=args.tides_factor, compress=args.compress)
-    # with open(name_tag +"_snapshot_"+snapshot_num+"_TidesFalse" +
-    #           "_smao{0}_mult{1}_ngrid{2}_hm{3}_ft{4check_tides_sys}_co{5}".format(sma_order, args.mult_max, args.ngrid,
-    #                                                        len(args.halo_mass_file) > 0,  args.tides_factor, args.compress) +".p", "wb") as ff:
-    #     pickle.dump(cl, ff)
 
 
 
