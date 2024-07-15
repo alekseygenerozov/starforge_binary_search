@@ -575,7 +575,7 @@ def main():
     final_bins = ids_a[mults_a == 2]
     final_bin_histories_stack = get_bin_histories(final_bins, sys_lookup)
     np.savez(base + aa + "/final_bin_histories_stack", final_bin_histories_stack)
-    final_bins_arr_id = np.array([np.where(bin_ids == row)[0][0] for row in final_bins])
+    final_bins_arr_id = np.array([np.where(np.array(bin_ids) == row)[0][0] for row in final_bins])
     np.savez(base + aa + "/final_bins_arr_id", final_bins_arr_id)
 
     fst_idx = get_fst(first_snap_idx, bin_ids)

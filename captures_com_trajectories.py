@@ -143,7 +143,7 @@ closest = []
 print(base + aa + "closest.p")
 snapshot1 = tracemalloc.take_snapshot()
 
-for jj in range(len(bin_ids)):
+for jj in range(len(bin_ids[:5])):
     print(jj)
     # if not np.isin(jj, final_bins_arr_id):
     #     continue
@@ -151,19 +151,19 @@ for jj in range(len(bin_ids)):
     tmp_row = np.array(list(bin_ids[jj])).astype(str)
     tmp_class = bin_class[jj]
     ##Getting com over time for pair -- make sure that the replacement here will not cause errors
-    tmp1 = path_lookup[tmp_row[0]]
-    ms1 = tmp1[:, mcol]
+    p1_raw = path_lookup[tmp_row[0]]
+    ms1 = p1_raw[:, mcol]
     ms1[np.isinf(ms1)] = 1
     ms1.shape = (-1, 1)
-    tmp2 = path_lookup[tmp_row[1]]
-    ms2 = tmp2[:, mcol]
+    p2_raw = path_lookup[tmp_row[1]]
+    ms2 = p2_raw[:, mcol]
     ms2[np.isinf(ms2)] = 1
     ms2.shape = (-1, 1)
-    coms = (tmp1[:, pxcol:pzcol + 1] * ms1 + tmp2[:, pxcol:pzcol + 1] * ms2) / (ms1 + ms2)
+    coms = (p1_raw[:, pxcol:pzcol + 1] * ms1 + p2_raw[:, pxcol:pzcol + 1] * ms2) / (ms1 + ms2)
     ##Positions in the evolving com frame
-    p1 = subtract_path(tmp1[:, pxcol:pzcol + 1], coms)  # [100:]
-    p2 = subtract_path(tmp2[:, pxcol:pzcol + 1], coms)  # [100:]
-    psep = subtract_path(tmp1[:, pxcol:pzcol + 1], tmp2[:, pxcol:pzcol + 1])
+    p1 = subtract_path(p1_raw[:, pxcol:pzcol + 1], coms)  # [100:]
+    p2 = subtract_path(p2_raw[:, pxcol:pzcol + 1], coms)  # [100:]
+    psep = subtract_path(p1_raw[:, pxcol:pzcol + 1], p2_raw[:, pxcol:pzcol + 1])
     psep = np.sum((psep * psep), axis=1)**.5
     tmp_filt = ~np.isinf(p1[:, 0])
     ##Filter to exclude data where binary separation falls below the softening length
@@ -184,12 +184,12 @@ for jj in range(len(bin_ids)):
 
     ##Getting initial semimajor axis -- need to do this ringamarole in case the
     ##stars start unbound from each other...
-    tmp1_fst = tmp1[tmp_filt][0]
-    tmp2_fst = tmp2[tmp_filt][0]
-    tmp_orb = find_multiples_new2.get_orbit(tmp1_fst[pxcol:pzcol+1], tmp2_fst[pxcol:pzcol+1],\
-                                            tmp1_fst[vxcol:vzcol+1], tmp2_fst[vxcol:vzcol+1],\
-                                            tmp1_fst[mtotcol], tmp2_fst[mtotcol],\
-                                           tmp1_fst[hcol], tmp2_fst[hcol])
+    p1_raw_fst = p1_raw[tmp_filt][0]
+    p2_raw_fst = p2_raw[tmp_filt][0]
+    tmp_orb = find_multiples_new2.get_orbit(p1_raw_fst[pxcol:pzcol+1], p2_raw_fst[pxcol:pzcol+1],\
+                                            p1_raw_fst[vxcol:vzcol+1], p2_raw_fst[vxcol:vzcol+1],\
+                                            p1_raw_fst[mtotcol], p2_raw_fst[mtotcol],\
+                                           p1_raw_fst[hcol], p2_raw_fst[hcol])
 
 
     # coms = np.ones((end_snap + 1, 3)) * np.inf
@@ -222,18 +222,18 @@ for jj in range(len(bin_ids)):
         vel_all_y.append(path_lookup[uu][:, vycol])
         vel_all_z.append(path_lookup[uu][:, vzcol])
         ##Closest approach for this particle
-        # order = np.argsort(path_diff)
-        # closest_approaches_time[ii] = path_lookup[uu][order[0]][0] * snap_interval
-        # closest_approaches[ii] = path_diff[order[0]] * conv
+        order = np.argsort(path_diff)
+        closest_approaches_time[ii] = path_lookup[uu][order[0]][0] * snap_interval
+        closest_approaches[ii] = path_diff[order[0]] * conv
         ##Get separation normalized by binary separation
-        # path_diff_norm = path_divide(path_diff, psep)
-        # order_norm = np.argsort(path_diff_norm)
+        path_diff_norm = path_divide(path_diff, psep)
+        order_norm = np.argsort(path_diff_norm)
         ##Time where (normalized) closest approach occurs
         ##Time where (normalized) closest approach occurs
-        # closest_approaches_norm_time[ii] = path_lookup[uu][order_norm[0]][0] * snap_interval
+        closest_approaches_norm_time[ii] = path_lookup[uu][order_norm[0]][0] * snap_interval
         ##Normalized closest approach
-        # closest_approaches_norm[ii] = path_diff_norm[order_norm[0]]
-        # closest_approaches_norm[ii] = path_diff[order[0]]
+        closest_approaches_norm[ii] = path_diff_norm[order_norm[0]]
+        closest_approaches_norm[ii] = path_diff[order[0]]
         ##FORCE ON EACH PARTICLE
         ##NEED TO CALL PYTREEGRAV
 
@@ -271,18 +271,18 @@ for jj in range(len(bin_ids)):
     sigma_z2 = np.mean(v_close_z**2., axis=1) - np.mean(v_close_z, axis=1)**2.
     sigma_2 = sigma_x2 + sigma_y2 + sigma_z2
     sigma_2[np.isnan(sigma_2)] = np.inf
-    cross_sections[jj] = path_divide(psep * sfc.GN * (tmp1[:, mcol] + tmp2[:, mcol]), (sigma_2))
+    cross_sections[jj] = path_divide(psep * sfc.GN * (p1_raw[:, mcol] + p2_raw[:, mcol]), (sigma_2))
     sigma_series[jj] = sigma_2**.5
     ##Minimum closest approach over all particles
-    # order = np.argsort(closest_approaches)
-    # closest_tags = utags_str[order]
-    # closest_approaches = closest_approaches[order]
-    # closest_approaches_time = closest_approaches_time[order]
+    order = np.argsort(closest_approaches)
+    closest_tags = utags_str[order]
+    closest_approaches = closest_approaches[order]
+    closest_approaches_time = closest_approaches_time[order]
     #Minimum normalized closest approach over all particles
-    # order_norm = np.argsort(closest_approaches_norm)
-    # closest_tags_norm = utags_str[order_norm]
-    # closest_approaches_norm = closest_approaches_norm[order_norm]
-    # closest_approaches_norm_time = closest_approaches_norm_time[order_norm]
+    order_norm = np.argsort(closest_approaches_norm)
+    closest_tags_norm = utags_str[order_norm]
+    closest_approaches_norm = closest_approaches_norm[order_norm]
+    closest_approaches_norm_time = closest_approaches_norm_time[order_norm]
 
     ##Halo masses
     tmp_halo_mass = sys1_info[:, LOOKUP_MTOT] - sys1_info[:, LOOKUP_M]
@@ -300,10 +300,9 @@ for jj in range(len(bin_ids)):
     halo_snap[jj] = max(halo_snap1, halo_snap2)
 
     pfilt = np.where(~np.isinf(psep) & (psep > 2e-4))[0]
-    t_avg = np.inf
-    t_max = np.inf
-    snap_max = np.inf
-    del path_diff_all, mass_all, vel_all_x, vel_all_y, vel_all_z, u_tags_exclude, path_diff_all_order, tmp1, tmp2
+    # t_avg = np.inf
+    # t_max = np.inf
+    # snap_max = np.inf
 
     # snapshot2 = tracemalloc.take_snapshot()
     # top_stats = snapshot2.compare_to(snapshot1, 'lineno')
@@ -315,7 +314,7 @@ for jj in range(len(bin_ids)):
 
     # snapshot1 = snapshot2  # Update snapshot for next iteration
 
-    ##Mean tidal force for binaries while separation is greater than the softening length...
+    #Mean tidal force for binaries while separation is greater than the softening length...
     # t_series = tides_norm_series[jj]
     # if len(pfilt) > 0:
     #     pfilt = pfilt[-1]
@@ -327,81 +326,91 @@ for jj in range(len(bin_ids)):
 
     # if np.isinf(t_max) or t_max >= 0.01:
     #     continue
-    # fig, axs = plt.subplots(figsize=(20, 20), nrows=2, ncols=2)
-    # # fig, ax = plt.subplots(figsize=(10, 10), constrained_layout=True)
-    # delta = np.abs(p1[tmp_filt][0] - p2[tmp_filt][0]) * conv
-    #
-    # ax = axs[0,0]
-    # ax.set_xlabel("x [au]")
-    # ax.set_ylabel("y [au]")
-    # ax.set_xlim(-1.1 * delta[0], 1.1 * delta[0])
-    # ax.set_ylim(-1.1 * delta[1], 1.1 * delta[1])
-    #
-    # filt_together = (tmp1[:, scol] == tmp2[:, scol]) & (tmp_filt)
-    # segs = np.where(~filt_together[:-1] == filt_together[1:])[0]
-    # segs = np.append(segs, len(filt_together) - 1)
-    #
-    # ax.plot(p1[:, 0] * conv, p1[:, 1] * conv, 'r--', alpha=0.3)
-    # ax.plot(p2[:, 0] * conv, p2[:, 1] * conv, 'b--', alpha=0.3)
-    # seg_last = -1
-    # for tmp_seg in segs:
-    #     start = seg_last + 1
-    #     end = tmp_seg + 1
-    #     if filt_together[start]:
-    #         ax.plot(p1[:, 0][start:end] * conv, p1[:, 1][start:end] * conv, 'r-', alpha=0.6)
-    #         ax.plot(p2[:, 0][start:end] * conv, p2[:, 1][start:end] * conv, 'b-', alpha=0.6)
-    #
-    #     seg_last = tmp_seg
-    # ax.annotate(r"$a_i = {0:.0f}$ au, $e_i$ = {1:.2g}".format(tmp_orb[0] * cgs.pc / cgs.au, tmp_orb[1]) + "\n" + "{0}".format(
-    #         tmp_row), (0.01, 0.99), ha='left', va='top', xycoords='axes fraction')
-    #
-    # ##Getting the closest distances...maybe should look at the closest distances after the halo mass disappears...
-    # tag = closest_tags[2]
-    # tmp_path = path_lookup[tag]
-    # pclose = subtract_path(tmp_path[:, pxcol:pzcol + 1], coms)
-    # pclose = np.sum(pclose * pclose, axis=1)**.5
-    # tag = closest_tags[3]
-    # tmp_path = path_lookup[tag]
-    # pclose2 = subtract_path(tmp_path[:, pxcol:pzcol + 1], coms)
-    # pclose2 = np.sum(pclose2 * pclose2, axis=1)**.5
-    # tag = closest_tags[4]
-    # tmp_path = path_lookup[tag]
-    # pclose3 = subtract_path(tmp_path[:, pxcol:pzcol + 1], coms)
-    # pclose3 = np.sum(pclose3 * pclose3, axis=1)**.5
-    # tag = closest_tags[5]
-    # tmp_path = path_lookup[tag]
-    # pclose4 = subtract_path(tmp_path[:, pxcol:pzcol + 1], coms)
-    # pclose4 = np.sum(pclose4 * pclose4, axis=1)**.5
-    #
-    #
-    #
-    # ax = axs[1,0]
-    # ax.set_xlabel("x [pc]")
-    # ax.set_ylabel("y [pc]")
-    #
-    # ax.plot(tmp1[:, pxcol], tmp1[:, pycol], 'r', alpha=0.5)
-    # ax.plot(tmp2[:, pxcol], tmp2[:, pycol], 'b--', alpha=0.5)
-    # ax.plot(tmp1_fst[pxcol], tmp2_fst[pycol], "rs")
-    #
-    # for tag in closest_tags[2:3]:
-    #     tmp_path = path_lookup[tag]
-    #     ax.plot(tmp_path[:, pxcol], tmp_path[:, pycol], color='0.5')
-    #
-    # for tag in closest_tags_norm[2:4]:
-    #     tmp_path = path_lookup[tag]
-    #     ax.plot(tmp_path[:, pxcol], tmp_path[:, pycol], '--', color='0.5')
-    #
-    # close_str1 = r"Closest distance ={0:.2g} au, time = {1:.2g} yr".format(closest_approaches[2], closest_approaches_time[2]) +\
-    #             "\n" + "{0}\n".format(closest_tags[2])
-    # close_str2 = r"Min (Approach / Bin Sep) ={0:.2g}, time = {1:.2g} yr".format(closest_approaches_norm[2], closest_approaches_norm_time[2]) +\
-    #             "\n" + "{0}\n".format(closest_tags_norm[2])
-    # close_str3 = "Class: {0}\n".format(tmp_class)
-    # close_str4 = "Initial Separation: {0:.1f}".format(psep[~np.isinf(psep)][0] * cgs.pc / cgs.au)
-    #
-    # ax.annotate(close_str1 + close_str2 + close_str3 + close_str4, (0.01, 0.99), ha='left', va='top', xycoords='axes fraction', fontsize=16)
-    # ##Could also add the time of the closest encounter...
-    # # fig.savefig(base + aa + "com_path_{0:03d}.pdf".format(fig_idx))
-    #
+    fig, axs = plt.subplots(figsize=(20, 20), nrows=2, ncols=2)
+    # fig, ax = plt.subplots(figsize=(10, 10), constrained_layout=True)
+    delta = np.abs(p1[tmp_filt][0] - p2[tmp_filt][0]) * conv
+
+    ax = axs[0,0]
+    ax.set_xlabel("x [au]")
+    ax.set_ylabel("y [au]")
+    ax.set_xlim(-5.1 * delta[0], 5.1 * delta[0])
+    ax.set_ylim(-5.1 * delta[1], 5.1 * delta[1])
+
+    filt_together = (p1_raw[:, scol] == p2_raw[:, scol]) & (tmp_filt)
+    segs = np.where(~filt_together[:-1] == filt_together[1:])[0]
+    segs = np.append(segs, len(filt_together) - 1)
+
+    ax.plot(p1[:, 0] * conv, p1[:, 1] * conv, 'r--', alpha=0.3)
+    ax.plot(p2[:, 0] * conv, p2[:, 1] * conv, 'b--', alpha=0.3)
+    for tag in closest_tags[2:3]:
+        tmp_path = path_lookup[tag][:, pxcol:pzcol + 1]
+        tmp_path = subtract_path(tmp_path, coms)
+        ax.plot(tmp_path[:, 0] * conv, tmp_path[:, 1] * conv, color='0.5')
+
+    for tag in closest_tags_norm[2:4]:
+        tmp_path = path_lookup[tag][:, pxcol:pzcol + 1]
+        tmp_path = subtract_path(tmp_path, coms)
+        ax.plot(tmp_path[:, 0] * conv, tmp_path[:, 1] * conv, '--', color='0.5')
+
+    seg_last = -1
+    for tmp_seg in segs:
+        start = seg_last + 1
+        end = tmp_seg + 1
+        if filt_together[start]:
+            ax.plot(p1[:, 0][start:end] * conv, p1[:, 1][start:end] * conv, 'r-', alpha=0.6)
+            ax.plot(p2[:, 0][start:end] * conv, p2[:, 1][start:end] * conv, 'b-', alpha=0.6)
+
+        seg_last = tmp_seg
+    ax.annotate(r"$a_i = {0:.0f}$ au, $e_i$ = {1:.2g}".format(tmp_orb[0] * cgs.pc / cgs.au, tmp_orb[1]) + "\n" + "{0}".format(
+            tmp_row), (0.01, 0.99), ha='left', va='top', xycoords='axes fraction')
+
+    ##Getting the closest distances...maybe should look at the closest distances after the halo mass disappears...
+    tag = closest_tags[2]
+    tmp_path = path_lookup[tag]
+    pclose = subtract_path(tmp_path[:, pxcol:pzcol + 1], coms)
+    pclose = np.sum(pclose * pclose, axis=1)**.5
+    tag = closest_tags[3]
+    tmp_path = path_lookup[tag]
+    pclose2 = subtract_path(tmp_path[:, pxcol:pzcol + 1], coms)
+    pclose2 = np.sum(pclose2 * pclose2, axis=1)**.5
+    tag = closest_tags[4]
+    tmp_path = path_lookup[tag]
+    pclose3 = subtract_path(tmp_path[:, pxcol:pzcol + 1], coms)
+    pclose3 = np.sum(pclose3 * pclose3, axis=1)**.5
+    tag = closest_tags[5]
+    tmp_path = path_lookup[tag]
+    pclose4 = subtract_path(tmp_path[:, pxcol:pzcol + 1], coms)
+    pclose4 = np.sum(pclose4 * pclose4, axis=1)**.5
+
+
+
+    ax = axs[1,0]
+    ax.set_xlabel("x [pc]")
+    ax.set_ylabel("y [pc]")
+
+    ax.plot(p1_raw[:, pxcol], p1_raw[:, pycol], 'r', alpha=0.5)
+    ax.plot(p2_raw[:, pxcol], p2_raw[:, pycol], 'b--', alpha=0.5)
+    ax.plot(p1_raw_fst[pxcol], p2_raw_fst[pycol], "rs")
+
+    for tag in closest_tags[2:3]:
+        tmp_path = path_lookup[tag]
+        ax.plot(tmp_path[:, pxcol], tmp_path[:, pycol], color='0.5')
+
+    for tag in closest_tags_norm[2:4]:
+        tmp_path = path_lookup[tag]
+        ax.plot(tmp_path[:, pxcol], tmp_path[:, pycol], '--', color='0.5')
+
+    close_str1 = r"Closest distance ={0:.2g} au, time = {1:.2g} yr".format(closest_approaches[2], closest_approaches_time[2]) +\
+                "\n" + "{0}\n".format(closest_tags[2])
+    close_str2 = r"Min (Approach / Bin Sep) ={0:.2g}, time = {1:.2g} yr".format(closest_approaches_norm[2], closest_approaches_norm_time[2]) +\
+                "\n" + "{0}\n".format(closest_tags_norm[2])
+    close_str3 = "Class: {0}\n".format(tmp_class)
+    close_str4 = "Initial Separation: {0:.1f}".format(psep[~np.isinf(psep)][0] * cgs.pc / cgs.au)
+
+    ax.annotate(close_str1 + close_str2 + close_str3 + close_str4, (0.01, 0.99), ha='left', va='top', xycoords='axes fraction', fontsize=16)
+    ##Could also add the time of the closest encounter...
+    # fig.savefig(base + aa + "com_path_{0:03d}.pdf".format(fig_idx))
+
     # ax = axs[0, 1]
     # ax.set_xlim(2e6, 2e7)
     # ax.set_xlabel("Time [yr]")
@@ -409,23 +418,27 @@ for jj in range(len(bin_ids)):
     # ax.plot(np.linspace(0, 489, 490)[int(halo_snap[jj]) + 1:] * snap_interval, t_series[int(halo_snap[jj]) + 1:])
     # ax.annotate("Avg, Max={0:.2g}, {1:.2g}".format(t_avg, t_max),
     #             (0.01, 0.99), xycoords="axes fraction", va='top', ha='left')
-    #
-    # ax = axs[1,1]
-    # ax.set_xlim(2e6, 2e7)
-    # ax.set_xlabel("Time [yr]")
-    # ax.set_ylabel("Closest distances")
+
+    ax = axs[1,1]
+    ax.set_xlim(2e6, 2e7)
+    ax.set_xlabel("Time [yr]")
+    ax.set_ylabel("Closest distances")
     # ax.semilogy(np.array([snap_max, snap_max]) * snap_interval, [0.1, 1], 'r--')
-    # ax.semilogy(np.linspace(0, 489, 490) * snap_interval, pclose)
-    # ax.semilogy(np.linspace(0, 489, 490) * snap_interval, pclose2)
-    # ax.semilogy(np.linspace(0, 489, 490) * snap_interval, pclose3)
-    # ax.semilogy(np.linspace(0, 489, 490) * snap_interval, pclose4)
-    #
-    #
-    #
-    # fig.savefig(base + aa + "tmp2_com_path_{0:03d}.png".format(fig_idx))
-    # fig_idx += 1
-    #
-    # plt.clf()
+    ax.semilogy(np.linspace(0, 489, 490) * snap_interval, pclose)
+    ax.semilogy(np.linspace(0, 489, 490) * snap_interval, pclose2)
+    ax.semilogy(np.linspace(0, 489, 490) * snap_interval, pclose3)
+    ax.semilogy(np.linspace(0, 489, 490) * snap_interval, pclose4)
+
+
+
+    fig.savefig(base + aa + "tmp2_com_path_{0:03d}.png".format(fig_idx))
+    fig_idx += 1
+    sys.stdout.flush()
+    print(base + aa + "tmp2_com_path_{0:03d}.png")
+    del path_diff_all, mass_all, vel_all_x, vel_all_y, vel_all_z, u_tags_exclude, path_diff_all_order, p1_raw, p2_raw
+
+
+    plt.clf()
 np.savez(base + aa + "dens_series_bins_nrms_{0}.npz".format(nclose), dens=dens_series, hs=halo_snap,
          force=force_series, cross_sections=cross_sections, sigma=sigma_series, mean_mass=mean_mass,
          rms_mass=rms_mass)

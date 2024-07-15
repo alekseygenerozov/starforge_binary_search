@@ -17,7 +17,7 @@ LOOKUP_ECC = 7
 
 ##Paths
 sim_tag = "M2e4_R10_S0_T1_B0.1_Res271_n2_sol0.5_42"
-base = "/home/aleksey/Dropbox/projects/Hagai_projects/star_forge/M2e4_R10_S0_T1_B0.1_Res271_n2_sol0.5_42/"
+base = "/home/aleksey/Dropbox/projects/Hagai_projects/star_forge/M2e4_R10/M2e4_R10_S0_T1_B0.1_Res271_n2_sol0.5_42/"
 r2 = sys.argv[1].replace(".p", "")
 aa = "analyze_multiples_output_" + r2 + "/"
 base_sink = base + "/sinkprop/{0}_snapshot_".format(sim_tag)
@@ -27,7 +27,7 @@ bin_ids = np.load(base + aa + "/unique_bin_ids.npz", allow_pickle=True)['arr_0']
 lookup = np.load(base + aa + "system_lookup_table.npz")['arr_0']
 fate_tags = np.load(base + aa + "/fate_tags.npz", allow_pickle=True)['arr_0']
 fate_tags = fate_tags.astype(str)
-lookup_ref = np.load(base + aa.replace("hmTrue", "hmFalse") + "system_lookup_table.npz")['arr_0']
+# lookup_ref = np.load(base + aa.replace("hmTrue", "hmFalse") + "system_lookup_table.npz")['arr_0']
 
 ic = np.load(base + aa + "/ic.npz", allow_pickle=True)['arr_0']
 t_first = ic[:, 0]
@@ -40,11 +40,11 @@ snap_interval = 2.47e4
 cols = ['r', 'b']
 alphas = [1, 0.5]
 fig_idx = 0
-final_bins_arr_id = np.load(base + aa + "/final_bins_arr_id.npz")["arr_0"]
+# final_bins_arr_id = np.load(base + aa + "/final_bins_arr_id.npz")["arr_0"]
 
-for jj in range(len(bin_ids)):
-    if not np.isin(jj, final_bins_arr_id):
-        continue
+for jj in range(len(bin_ids[:5])):
+    # if not np.isin(jj, final_bins_arr_id):
+    #     continue
     fig_sma, ax_sma = plt.subplots(figsize=(10, 10), constrained_layout=True)
     ax_sma.set_ylim(20, 2e3)
     ax_sma.set_xlabel('t [yr]')
@@ -95,7 +95,7 @@ for jj in range(len(bin_ids)):
     for kk in (0, 1):
         test_id = list(bin_ids[jj])[kk]
         tmp_sys_idx = lookup[test_id == lookup[:, LOOKUP_PID].astype(int)]
-        tmp_sys_idx_ref = lookup_ref[test_id == lookup_ref[:, LOOKUP_PID].astype(int)]
+        # tmp_sys_idx_ref = lookup_ref[test_id == lookup_ref[:, LOOKUP_PID].astype(int)]
 
         tmp_halo_mass = tmp_sys_idx[:, LOOKUP_MTOT] - tmp_sys_idx[:, LOOKUP_M]
         halo_snap = np.where(tmp_halo_mass > 0.01 * tmp_sys_idx[:, LOOKUP_M])[0]
@@ -132,13 +132,13 @@ for jj in range(len(bin_ids)):
                   color=cols[kk], alpha=alphas[kk])
         # ax_ecc.semilogx(tmp_sys_idx_ref[:, LOOKUP_SNAP] * snap_interval, tmp_sys_idx_ref[:, LOOKUP_ECC],
         #           color=cols[kk], alpha=alphas[kk], linestyle='--')
-        axs[3].loglog(tmp_sys_idx_ref[:, LOOKUP_SNAP] * snap_interval, tmp_sys_idx[:, LOOKUP_MTOT],
-                  color=cols[kk], alpha=alphas[kk])
-        axs[3].loglog(tmp_sys_idx_ref[:, LOOKUP_SNAP] * snap_interval, tmp_sys_idx[:, LOOKUP_M],
-                  color=cols[kk], alpha=alphas[kk], linestyle='--')
-
-        axs[4].loglog(tmp_sys_idx_ref[:, LOOKUP_SNAP] * snap_interval, tmp_sys_idx[:, LOOKUP_MULT],
-                  color=cols[kk], alpha=alphas[kk])
+        # axs[3].loglog(tmp_sys_idx_ref[:, LOOKUP_SNAP] * snap_interval, tmp_sys_idx[:, LOOKUP_MTOT],
+        #           color=cols[kk], alpha=alphas[kk])
+        # axs[3].loglog(tmp_sys_idx_ref[:, LOOKUP_SNAP] * snap_interval, tmp_sys_idx[:, LOOKUP_M],
+        #           color=cols[kk], alpha=alphas[kk], linestyle='--')
+        #
+        # axs[4].loglog(tmp_sys_idx_ref[:, LOOKUP_SNAP] * snap_interval, tmp_sys_idx[:, LOOKUP_MULT],
+        #           color=cols[kk], alpha=alphas[kk])
 
 
 
