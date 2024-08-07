@@ -49,9 +49,9 @@ def max_w_infinite(p1):
         return np.max(p1[~np.isinf(p1)])
 
 ##READING IN AUXILIARY DATA TABLES...############################################################################################
-sim_tag = "M2e4_R10_S0_T1_B0.1_Res271_n2_sol0.5_42"
-base = "/home/aleksey/Dropbox/projects/Hagai_projects/star_forge/M2e4_R10/M2e4_R10_S0_T1_B0.1_Res271_n2_sol0.5_42/"
-r2 = sys.argv[1].replace(".p", "")
+sim_tag = f"M2e4_R10_S0_T1_B0.1_Res271_n2_sol0.5_{sys.argv[1]}"
+base = f"/home/aleksey/Dropbox/projects/Hagai_projects/star_forge/M2e4_R10/M2e4_R10_S0_T1_B0.1_Res271_n2_sol0.5_{sys.argv[1]}/"
+r2 = sys.argv[2].replace(".p", "")
 aa = "analyze_multiples_output_" + r2 + "/"
 base_sink = base + "/sinkprop/{0}_snapshot_".format(sim_tag)
 lookup = np.load(base + aa + "/system_lookup_table.npz")['arr_0']
@@ -108,7 +108,9 @@ assert(np.all(np.array(tags)[np.argsort(tags)] == np.array(tags2)[np.argsort(tag
 ######Saving a path for each particle
 utags = np.unique(sinks_all[:, 1])
 utags_str = utags.astype(int).astype(str)
+utimes = np.unique(sinks_all[:, 0])
 path_lookup = {}
+path_lookup_times = {}
 for ii, uu in enumerate(utags):
     tmp_sel = sinks_all[sinks_all[:, 1] == uu]
     tmp_path1 = np.ones((end_snap + 1, len(sink_cols))) * np.inf
@@ -116,8 +118,15 @@ for ii, uu in enumerate(utags):
 
     path_lookup[utags_str[ii]] = tmp_path1
 
+for ii, uu in enumerate(utimes):
+    tmp_sel = sinks_all[sinks_all[:, 0] == uu]
+    path_lookup_times[int(uu)] = tmp_sel
+
 with open(base + aa + "/path_lookup.p", "wb") as ff:
     pickle.dump(path_lookup, ff)
+
+with open(base + aa + "/path_lookup_times.p", "wb") as ff:
+    pickle.dump(path_lookup_times, ff)
 
 mcol = np.where(sink_cols == "m")[0][0]
 pxcol = np.where(sink_cols == "px")[0][0]
@@ -424,10 +433,10 @@ for jj in range(len(bin_ids[:5])):
     ax.set_xlabel("Time [yr]")
     ax.set_ylabel("Closest distances")
     # ax.semilogy(np.array([snap_max, snap_max]) * snap_interval, [0.1, 1], 'r--')
-    ax.semilogy(np.linspace(0, 489, 490) * snap_interval, pclose)
-    ax.semilogy(np.linspace(0, 489, 490) * snap_interval, pclose2)
-    ax.semilogy(np.linspace(0, 489, 490) * snap_interval, pclose3)
-    ax.semilogy(np.linspace(0, 489, 490) * snap_interval, pclose4)
+    ax.semilogy(np.linspace(0, end_snap, end_snap + 1) * snap_interval, pclose)
+    ax.semilogy(np.linspace(0, end_snap, end_snap + 1) * snap_interval, pclose2)
+    ax.semilogy(np.linspace(0, end_snap, end_snap + 1) * snap_interval, pclose3)
+    ax.semilogy(np.linspace(0, end_snap, end_snap + 1) * snap_interval, pclose4)
 
 
 

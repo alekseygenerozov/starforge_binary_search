@@ -19,7 +19,7 @@ LOOKUP_ECC = 7
 
 sim_tag = "M2e4_R10_S0_T1_B0.1_Res271_n2_sol0.5_42"
 base = "/home/aleksey/Dropbox/projects/Hagai_projects/star_forge/M2e4_R10_S0_T1_B0.1_Res271_n2_sol0.5_42/"
-r2 = sys.argv[1].replace(".p", "")
+r2 = sys.argv[2].replace(".p", "")
 aa = "analyze_multiples_output_" + r2 + "/"
 base_sink = base + "/sinkprop/{0}_snapshot_".format(sim_tag)
 start_snap = 100
