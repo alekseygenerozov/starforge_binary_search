@@ -24,7 +24,7 @@ LOOKUP_SMA = 6
 LOOKUP_ECC = 7
 
 # def calculate_acceleration(path_lookup, tag1, tag2):
-nclose = 10
+nclose = 32
 
 def subtract_path(p1, p2):
     assert len(p1) == len(p2)
@@ -152,7 +152,7 @@ closest = []
 print(base + aa + "closest.p")
 snapshot1 = tracemalloc.take_snapshot()
 
-for jj in range(len(bin_ids[:5])):
+for jj in range(len(bin_ids)):
     print(jj)
     # if not np.isin(jj, final_bins_arr_id):
     #     continue

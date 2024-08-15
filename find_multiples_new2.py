@@ -630,8 +630,10 @@ def main():
                                                              " but less accurate (1)")
     parser.add_argument("--compress", action="store_true", help="Filter out compressive tidal forces")
     parser.add_argument("--tides_factor", type=float, default=8.0, help="Prefactor for check of tidal criterion (8.0)")
-    args = parser.parse_args()
+    parser.add_argument("--nhalo", action="store_true", help="Turn off halo")
 
+    args = parser.parse_args()
+    inc_halo =  not args.nhalo
     snapshot_file = args.snap_base + '_{0:03d}.hdf5'.format(int(args.snap))
     sma_order = args.sma_order
     name_tag = args.name_tag
@@ -644,7 +646,7 @@ def main():
     except KeyError:
         return
     halo_masses = np.zeros(len(partmasses))
-    if args.halo_mass_file:
+    if inc_halo:
         halo_mass_file = args.halo_mass_file + "_{0}_comp{1}_tf{2}".format(args.snap, args.compress, args.tides_factor)
         halo_masses = np.atleast_2d(np.genfromtxt(halo_mass_file))[:,0]
 
@@ -686,7 +688,7 @@ def main():
                  sma_order=sma_order, mult_max=args.mult_max, Ngrid1D=args.ngrid,
                  tides_factor=args.tides_factor, compress=args.compress)
     with open(name_tag+"_snapshot_"+snapshot_num+"_TidesTrue" +
-              "_smao{0}_mult{1}_ngrid{2}_hm{3}_ft{4}_co{5}".format(sma_order, args.mult_max, args.ngrid, len(args.halo_mass_file) > 0, args.tides_factor, args.compress) + ".p", "wb") as ff:
+              "_smao{0}_mult{1}_ngrid{2}_hm{3}_ft{4}_co{5}".format(sma_order, args.mult_max, args.ngrid, inc_halo, args.tides_factor, args.compress) + ".p", "wb") as ff:
         pickle.dump(cl, ff)
     print("Binary search:", time.time() - start_time)
     # cl = cluster(partpos, partvels, partmasses, partsink, partids, accel_stars + accel_gas, tides=False,
