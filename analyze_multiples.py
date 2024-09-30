@@ -122,8 +122,8 @@ def get_unique_binaries(r1, r2, start_snap, end_snap):
             with open(r1 + "{0:03d}".format(ss) + r2, "rb") as ff:
                 cl_a = pickle.load(ff)
         except FileNotFoundError:
+            print("Not found", ss)
             continue
-
         mults_a = np.array([sys1.multiplicity for sys1 in cl_a.systems])
         ids_a = np.array([set(sys1.ids) for sys1 in cl_a.systems], dtype=object)
         bin_ids_all.append(ids_a[mults_a == 2])
@@ -575,6 +575,7 @@ def main():
     final_bins = ids_a[mults_a == 2]
     final_bin_histories_stack = get_bin_histories(final_bins, sys_lookup)
     np.savez(base + aa + "/final_bin_histories_stack", final_bin_histories_stack)
+    breakpoint()
     final_bins_arr_id = np.array([np.where(np.array(bin_ids) == row)[0][0] for row in final_bins])
     np.savez(base + aa + "/final_bins_arr_id", final_bins_arr_id)
 

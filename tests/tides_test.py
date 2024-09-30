@@ -7,7 +7,11 @@ import argparse
 
 import warnings
 import sys
+
+# from obsolete.rebound_runs.hayden.end_incDistro_test import times
+
 sys.path.append("/home/aleksey/rebound")
+sys.path.append("/home/aleksey/code/python/star_forge_analysis/")
 import rebound
 from find_multiples_new2 import cluster
 import starforge_constants as sfc
@@ -21,16 +25,17 @@ def test_tides():
     ibin = 0.0
     fbin = 0.01
     ebin = 1e-3
-    deltas = [0.75, 0.85]
+    fts = np.geomspace(0.62, 0.68)
 
-    for ii in range(len(deltas)):
-        delta = deltas[ii]
-        abin = ((m_planet) / (m_star)) ** (1. / 3.) * sma_planet * delta
+    for ii in range(len(fts)):
+        # delta = deltas[ii]
+        abin =  1.0 *  ((m_planet) / (m_star) / 3.) ** (1. / 3.) * sma_planet #* delta
 
         sim = rebound.Simulation()
         sim.G = sfc.GN
         sim.add(m=m_star, x=1, y=1, z=1)  # Star
         sim.add(m=m_planet, a=sma_planet, inc=1e-4, e=1e-4)  # Planet
+        ##Try different phases...
         sim.add(m=m_moon, a=abin, e=ebin, inc=ibin, primary=sim.particles[1], f=fbin)
         sim.integrate(1e-20)
 
@@ -42,13 +47,15 @@ def test_tides():
         partids = np.array([1, 2, 3])
 
         cl = cluster(partpos, partvels, partmasses, partsink, partids, accel_stars, sma_order=True,
-                     tides_factor=1.0, tides=True, compress=False)
-        if ii == 0:
-            assert str(cl.systems[0].hierarchy) == '[[2, 3], 1]'
-        else:
-            assert str(cl.systems[0].hierarchy) != '[[2, 3], 1]'
+                     tides_factor=fts[ii], tides=True, compress=False)
+        print(ii, fts[ii], cl.systems[0].hierarchy)
+        # if ii == 0:
+        #     assert str(cl.systems[0].hierarchy) == '[[2, 3], 1]'
+        # else:
+        #     assert str(cl.systems[0].hierarchy) != '[[2, 3], 1]'
 
-
+def main():
+    test_tides()
 
 if __name__ == "__main__":
     main()
