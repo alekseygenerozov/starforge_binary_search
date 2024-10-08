@@ -329,6 +329,7 @@ def create_sys_lookup_table(r1, r2, base_sink, start_snap, end_snap):
                 if len(tmp_orb) == 0:
                     sma1 = -1
                     ecc1 = -1
+                    q1 = -1
                 ##Using mass to identify particles -- In principle may not give a unique match...
                 ##Perhaps use assert to check this assumption(!!!)
                 else:
@@ -336,7 +337,8 @@ def create_sys_lookup_table(r1, r2, base_sink, start_snap, end_snap):
                     sel1 = np.array([row[0] or row[1] for row in sel1])
                     sma1 = tmp_orb[sel1][0][0]
                     ecc1 = tmp_orb[sel1][0][1]
-                lookup.append([ss, elem1, ii, len(ids_a[ii]), m1, w1_row[-1], sma1, ecc1])
+                    q1 = m1 / (np.sum(tmp_orb[10:12]) - m1)
+                lookup.append([ss, elem1, ii, len(ids_a[ii]), m1, w1_row[-1], sma1, ecc1, q1])
 
     return np.array(lookup)
 
@@ -575,7 +577,6 @@ def main():
     final_bins = ids_a[mults_a == 2]
     final_bin_histories_stack = get_bin_histories(final_bins, sys_lookup)
     np.savez(base + aa + "/final_bin_histories_stack", final_bin_histories_stack)
-    breakpoint()
     final_bins_arr_id = np.array([np.where(np.array(bin_ids) == row)[0][0] for row in final_bins])
     np.savez(base + aa + "/final_bins_arr_id", final_bins_arr_id)
 
