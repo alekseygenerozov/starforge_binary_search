@@ -322,8 +322,12 @@ def create_sys_lookup_table(r1, r2, base_sink, start_snap, end_snap):
         tmp_sink = np.atleast_2d(np.genfromtxt(base_sink + "{0:03d}.sink".format(ss)))
 
         for ii in range(len(ids_a)):
+            mprim = max(cl.systems[ii].sub_mass)
+            mprim_id = ids_a[np.argmax(cl.systems[ii].sub_mass)]
+            masses_sorted = np.sort(cl.systems[ii].sub_mass)[::-1]
             for jj, elem1 in enumerate(ids_a[ii]):
                 m1 = cl.systems[ii].sub_mass[jj]
+                star_order = np.where(masses_sorted==m1)[0][0]
                 tmp_orb = cl.systems[ii].orbits
                 w1_row, w1_idx = snap_lookup(tmp_sink, elem1)
                 if len(tmp_orb) == 0:
@@ -338,7 +342,7 @@ def create_sys_lookup_table(r1, r2, base_sink, start_snap, end_snap):
                     sma1 = tmp_orb[sel1][0][0]
                     ecc1 = tmp_orb[sel1][0][1]
                     q1 = m1 / (np.sum(tmp_orb[:,10:12]) - m1)
-                lookup.append([ss, elem1, ii, len(ids_a[ii]), m1, w1_row[-1], sma1, ecc1, q1])
+                lookup.append([ss, elem1, ii, len(ids_a[ii]), m1, w1_row[-1], sma1, ecc1, q1, mprim, mprim_id, star_order])
 
     return np.array(lookup)
 
