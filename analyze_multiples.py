@@ -323,7 +323,7 @@ def create_sys_lookup_table(r1, r2, base_sink, start_snap, end_snap):
 
         for ii in range(len(ids_a)):
             mprim = max(cl.systems[ii].sub_mass)
-            mprim_id = ids_a[np.argmax(cl.systems[ii].sub_mass)]
+            mprim_id = ids_a[ii][np.argmax(cl.systems[ii].sub_mass)]
             masses_sorted = np.sort(cl.systems[ii].sub_mass)[::-1]
             for jj, elem1 in enumerate(ids_a[ii]):
                 m1 = cl.systems[ii].sub_mass[jj]
