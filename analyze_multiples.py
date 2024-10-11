@@ -341,7 +341,9 @@ def create_sys_lookup_table(r1, r2, base_sink, start_snap, end_snap):
                     sel1 = np.array([row[0] or row[1] for row in sel1])
                     sma1 = tmp_orb[sel1][0][0]
                     ecc1 = tmp_orb[sel1][0][1]
-                    q1 = m1 / (np.sum(tmp_orb[:,10:12]) - m1)
+                    q1 = m1 / (np.sum(tmp_orb[sel1][:,10:12]) - m1)
+                    if (q1 < 0.25) and (star_order==0):
+                        breakpoint()
                 lookup.append([ss, elem1, ii, len(ids_a[ii]), m1, w1_row[-1], sma1, ecc1, q1, mprim, mprim_id, star_order])
 
     return np.array(lookup)
