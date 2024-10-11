@@ -668,12 +668,12 @@ def main():
 
     ##Exclude particles that are in halos, so that the halos are collapsed once and for all(!!!)
     halo_mask = np.ones(len(xuniq), bool)
-    # with h5py.File(args.halo_mass_file.replace("M2e4", "") + f"_{args.snap}_comp{args.compress}_tf{args.tides_factor}.hdf5", 'r') as gas_dat_h5:
-    #     for ii in range(len(partpos)):
-    #         halo_idx = gas_dat_h5["halo_{0}".format(partids[ii])]
-    #         if (halo_idx.shape == (1, 2)) or len(halo_idx)==0:
-    #             continue
-    #         halo_mask[halo_idx] = False
+    with h5py.File(args.halo_mass_file.replace("M2e4", "") + f"_{args.snap}_comp{args.compress}_tf{args.tides_factor}.hdf5", 'r') as gas_dat_h5:
+        for ii in range(len(partpos)):
+            halo_idx = gas_dat_h5["halo_{0}".format(partids[ii])]
+            if (halo_idx.shape == (1, 2)) or len(halo_idx)==0:
+                continue
+            halo_mask[halo_idx] = False
 
     accel_gas = pytreegrav.AccelTarget(partpos, xuniq[halo_mask], muniq[halo_mask],
                                            softening_target=partsink, softening_source=huniq[halo_mask],
@@ -686,7 +686,7 @@ def main():
     accel_stars = pytreegrav.Accel(partpos, partmasses, partsink, theta=0.5, G=sfc.GN, method='bruteforce')
     cl = cluster(partpos, partvels, partmasses, partsink, partids, accel_stars + accel_gas,
                  sma_order=sma_order, mult_max=args.mult_max, Ngrid1D=args.ngrid,
-                 tides_factor=args.tides_factor, compress=args.compress, tides=False)
+                 tides_factor=args.tides_factor, compress=args.compress)
     with open(name_tag+"_snapshot_"+snapshot_num+"_TidesTrue" +
               "_smao{0}_mult{1}_ngrid{2}_hm{3}_ft{4}_co{5}".format(sma_order, args.mult_max, args.ngrid, inc_halo, args.tides_factor, args.compress) + ".p", "wb") as ff:
         pickle.dump(cl, ff)
