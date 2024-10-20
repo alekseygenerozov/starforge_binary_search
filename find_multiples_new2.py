@@ -670,12 +670,13 @@ def main():
 
     ##Exclude particles that are in halos, so that the halos are collapsed once and for all(!!!)
     halo_mask = np.ones(len(xuniq), bool)
-    with h5py.File(args.halo_mass_file.replace("M2e4", "") + f"_{args.snap}_comp{args.compress}_tf{args.tides_factor}.hdf5", 'r') as gas_dat_h5:
-        for ii in range(len(partpos)):
-            halo_idx = gas_dat_h5["halo_{0}".format(partids[ii])]
-            if (halo_idx.shape == (1, 2)) or len(halo_idx)==0:
-                continue
-            halo_mask[halo_idx] = False
+    if inc_halo:
+        with h5py.File(args.halo_mass_file.replace("M2e4", "") + f"_{args.snap}_comp{args.compress}_tf{args.tides_factor}.hdf5", 'r') as gas_dat_h5:
+            for ii in range(len(partpos)):
+                halo_idx = gas_dat_h5["halo_{0}".format(partids[ii])]
+                if (halo_idx.shape == (1, 2)) or len(halo_idx)==0:
+                    continue
+                halo_mask[halo_idx] = False
 
     accel_gas = pytreegrav.AccelTarget(partpos, xuniq[halo_mask], muniq[halo_mask],
                                            softening_target=partsink, softening_source=huniq[halo_mask],
