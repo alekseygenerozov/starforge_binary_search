@@ -69,11 +69,13 @@ def main(config) ->None:
                     kk = f'halo_{bin_row[0]}_x'
                     kk_rho = f'halo_{bin_row[0]}_rho'
                     kk_u = f'halo_{bin_row[0]}_u'
+                    kk_mass = f'halo_{bin_row[0]}_m'
 
                     tmp_bound = ff[kk0][...]
                     tmp_pos = ff[kk][...]
                     tmp_rho = ff[kk_rho][...]
                     tmp_u = ff[kk_u][...]
+                    tmp_mass = ff[kk_mass][...]
 
                     if len(tmp_pos.shape) != 2:
                         print("bad", tmp_bound)
@@ -87,12 +89,18 @@ def main(config) ->None:
                         rho_mean = np.mean(tmp_rho)
                         cs_mean = u_to_cs(np.mean(tmp_u))
                         dx = tmp_pos - sink_pos
+                        rs = np.sum(dx * dx, axis=1)**.5
                         print("cs:", cs_mean * 100 / 1e5)
 
                         evals, evecs = get_shape_eigen(dx)
                         a1, a2, a3 = evals
-                        rhalos.append((a1 * a2 * a3)**(1./3.))
-                        rjeans.append(jeans(rho_mean, cs_mean))
+                        rhalo = (a1 * a2 * a3)**(1./3.)
+                        rhalos.append(rhalo)
+                        ##Volume-weighted average of the density...
+                        rho_mean2 = np.sum(tmp_mass[rs <= rhalo]) / (4. * np.pi / 3. * rhalo**3.)
+                        if np.isinf(jeans(rho_mean2, cs_mean)):
+                            breakpoint()
+                        rjeans.append(jeans(rho_mean2, cs_mean))
 
                         fig, axs = plt.subplots(figsize=(16, 8), ncols = 2, constrained_layout=True)
                         ax = axs[0]
